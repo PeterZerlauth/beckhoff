@@ -21,29 +21,7 @@ A lightweight, high-performance Beckhoff ADS (Automation Device Specification) s
 - Symbol Handle Lookup (Name → Handle)
 
 ### Symbol Table (Thread-safe)
-
 Dynamic symbol registration with handle-based access and concurrent-safe read/write operations.
-
-```go
-// Register a symbol
-server.Symbol().Add("MAIN.Counter", []byte{0, 0, 0, 0})
-
-// Get handle
-handle, err := server.Symbol().GetHandle("MAIN.Counter")
-
-// Read / Write
-server.Symbol().Write(handle, data)
-data, err := server.Symbol().Read(handle)
-```
-
-### Generic Memory Backend
-
-Supports generic ADS memory using `IndexGroup` and `IndexOffset`.
-
-```go
-server.Write(1000, 0, []byte{1, 2, 3, 4})
-data, err := server.Read(1000, 0, 4)
-```
 
 ### High Performance Design
 
@@ -51,37 +29,6 @@ data, err := server.Read(1000, 0, 4)
 - Buffer pooling for reduced allocations
 - Optimized locking using `sync.RWMutex`
 - Serialized socket writes for safety
-
----
-
-## Architecture
-
-```
-TwinCAT PLC / Client
-        │
-        ▼
-   ADS Router (Port 48898)
-        │
-        ▼
-   Go ADS Server
-        │
- ┌──────┴────────┐
- │ Worker Pool   │
- │ (goroutines)  │
- └──────┬────────┘
-        │
-  ┌─────▼─────────┐
-  │ Command Layer │
-  └─────┬─────────┘
-        │
- ┌──────▼─────────┐
- │ Symbol Table   │
- └──────┬─────────┘
-        │
- ┌──────▼─────────┐
- │ Memory Backend │
- └────────────────┘
-```
 
 ---
 
@@ -154,7 +101,6 @@ In TwinCAT: **AMS Router → Add Route**
 Use any of the following:
 
 - PLC ADS function blocks
-- TwinCAT System Manager
 - ADS APIs (C#, Python, etc.)
 
 ---
