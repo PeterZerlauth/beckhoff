@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/peterzerlauth/beckhoff/server"
+	"github.com/PeterZerlauth/beckhoff/server"
 )
 
 func main() {

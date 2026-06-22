@@ -3,7 +3,7 @@ package server
 import (
 	"sync"
 
-	"github.com/peterzerlauth/beckhoff/ads"
+	"github.com/PeterZerlauth/beckhoff/ads"
 )
 
 type Symbol struct {
