@@ -67,15 +67,38 @@ go run .
 package main
 
 import (
+    "encoding/binary"
     "log"
+
     "github.com/PeterZerlauth/beckhoff/server"
+    "beckhoff/ads"
 )
 
 func main() {
+
     srv := server.New(851)
 
-    // Add a test symbol
+    // Add a static symbol
     srv.Symbol().Add("MAIN.Counter", []byte{0, 0, 0, 0})
+
+    // ✅ Override OnRead
+    srv.OnRead = func(indexGroup, indexOffset, length uint32) ([]byte, ads.ErrorCode) {
+
+        // Example: return a dynamic counter value
+        // (simulating a PLC variable that changes)
+
+        value := uint32(12345) // your dynamic value
+
+        buf := make([]byte, 4)
+        binary.LittleEndian.PutUint32(buf, value)
+
+        // Respect requested length
+        if int(length) < len(buf) {
+            return buf[:length], ads.NoError
+        }
+
+        return buf, ads.NoError
+    }
 
     if err := srv.Start(); err != nil {
         log.Fatal(err)
