@@ -9,8 +9,8 @@ import (
 	"os"
 	"sync"
 
-	"beckhoff/ads"
-	"beckhoff/ams"
+	"github.com/peterzerlauth/beckhoff/ads"
+	"github.com/peterzerlauth/beckhoff/ams"
 )
 
 type Server struct {
