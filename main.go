@@ -7,14 +7,14 @@ import (
 )
 
 func main() {
-	srv := server.New(25000)
+	server := server.New(25000)
 
 	// ✅ add BOOL symbol
-	srv.Symbol().Add("Main.bTest", []byte{1})  // true
-	srv.Symbol().Add("Main.bTest2", []byte{1}) // true
-	srv.Symbol().Add("Main.bValue", []byte{1}) // true
+	server.Symbol().Add("Main.bTest", []byte{1})  // true
+	server.Symbol().Add("Main.bTest2", []byte{1}) // true
+	server.Symbol().Add("Main.bValue", []byte{1}) // true
 
-	if err := srv.Start(); err != nil {
+	if err := server.Start(); err != nil {
 		log.Fatalf("Failed to start ADS server: %v", err)
 	}
 
