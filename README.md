@@ -7,14 +7,14 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 
 ## 🚀 Features
 
-- ✅ ADS TCP communication (via AMS Router)
-- ✅ Supports core ADS commands:
+- ADS TCP communication (via AMS Router)
+- Supports core ADS commands:
   - Read
   - Write
   - ReadWrite
   - Read Device Info
   - Read State
-- ✅ Structured logging (`slog`) to:
+- Structured logging to:
   - Terminal
-  - File (`logger.log`)
+  - File 
 
