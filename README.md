@@ -30,3 +30,26 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 * ADS Symbol support
 
 ---
+
+## Open Points
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/PeterZerlauth/beckhoff/server"
+)
+
+func main() {
+	srv := server.NewServer(25000, "ADS server")
+
+	if err := srv.Start(); err != nil {
+		log.Fatalf("failed to start ADS server: %v", err)
+	}
+
+	// block forever (simple dev version)
+	select {}
+}
+```
+
