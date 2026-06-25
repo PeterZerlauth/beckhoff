@@ -58,9 +58,9 @@ func main() {
 ## Ads read
 ```go
     // Custom ads read
-    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
-        if ig == 1000 && io == 1 {
+    srv.OnRead = func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode {
+    	srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(readData))
+        if indexGroup == 1000 && indexOffset == 1 {
             binary.LittleEndian.PutUint16(buf, 42)
             return ads.NoError
         }
@@ -71,10 +71,10 @@ func main() {
 ## Ads write
 ```go
     // Custom ads read
-    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
-        if ig == 1000 && io == 1 {
-            binary.LittleEndian.PutUint16(buf, 42)
+    srv.OnRead = func(indexGroup, io uint32, readData []byte) ads.ErrorCode {
+    	srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(readData))
+        if indexGroup == 1000 && indexOffset == 1 {
+            binary.LittleEndian.PutUint16(readData, 42)
             return ads.NoError
         }
 
@@ -84,20 +84,20 @@ func main() {
 ## Ads read/write
 ```go
 // Custom ADS ReadWrite
-srv.OnReadWrite = func(ig, io uint32, readBuf []byte, writeBuf []byte) ads.ErrorCode {
-	srv.Log().Info("Ads ReadWrite", "ig", ig, "io", io, "readLen", len(readBuf), "writeLen", len(writeBuf))
+srv.OnReadWrite = func(indexGroup, io uint32, readData []byte, writeData []byte) ads.ErrorCode {
+	srv.Log().Info("Ads ReadWrite", "ig", indexGroup, "io", indexOffset, "readLen", len(readData), "writeLen", len(writeData))
 
-	if ig == 1000 && io == 3 {
+	if indexGroup == 1000 && indexOffset == 3 {
 		// Example: use write input to compute response
 		var input uint16
-		if len(writeBuf) >= 2 {
-			input = binary.LittleEndian.Uint16(writeBuf)
+		if len(writeData) >= 2 {
+			input = binary.LittleEndian.Uint16(writeData)
 		}
 
 		result := input * 2 // simple processing
 
-		if len(readBuf) >= 2 {
-			binary.LittleEndian.PutUint16(readBuf, result)
+		if len(readData) >= 2 {
+			binary.LittleEndian.PutUint16(readData, result)
 		}
 
 		return ads.NoError
