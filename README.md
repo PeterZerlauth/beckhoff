@@ -39,7 +39,7 @@ mkdir ads-client
 cd ads-client
 
 go mod init ads-client
-go get github.com/PeterZerlauth/beckho
+go get github.com/PeterZerlauth/beckhoff
 ```
 
 ## Example main
