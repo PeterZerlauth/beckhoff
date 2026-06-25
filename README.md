@@ -9,14 +9,12 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 
 - ✅ ADS TCP communication (via AMS Router)
 - ✅ Supports core ADS commands:
-  - Read (`CmdRead`)
-  - Write (`CmdWrite`)
-  - ReadWrite (`CmdReadWrite`)
+  - Read
+  - Write
+  - ReadWrite
   - Read Device Info
-- ✅ In-memory data storage (IndexGroup → IndexOffset → bytes)
-- ✅ Concurrent request handling (Task-style with bounded concurrency)
+  - Read State
 - ✅ Structured logging (`slog`) to:
   - Terminal
   - File (`logger.log`)
-- ✅ Thread-safe memory access
 
