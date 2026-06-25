@@ -20,9 +20,9 @@ func main() {
 	srv := server.NewServer(25000, "My ADS Server")
 
 	// Custom ads read
-	srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-		srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
-		if ig == 1000 && io == 1 {
+	srv.OnRead = func(indexGroup, indexOffset uint32, buf []byte) ads.ErrorCode {
+		srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(buf))
+		if indexGroup == 1000 && indexOffset == 1 {
 			binary.LittleEndian.PutUint16(buf, 42)
 			return ads.NoError
 		}

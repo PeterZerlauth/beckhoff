@@ -22,9 +22,9 @@ type Server struct {
 	logger *logger.Logger
 
 	// ads commands
-	OnRead      func(ig, io uint32, readData []byte) ads.ErrorCode
-	OnWrite     func(ig, io uint32, dataData []byte) ads.ErrorCode
-	OnReadWrite func(ig, io uint32, readData []byte, writeData []byte) ads.ErrorCode
+	OnRead      func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode
+	OnWrite     func(indexGroup, indexOffset uint32, dataData []byte) ads.ErrorCode
+	OnReadWrite func(indexGroup, indexOffset uint32, readData []byte, writeData []byte) ads.ErrorCode
 }
 
 /* ===================== CONSTRUCTOR ===================== */
