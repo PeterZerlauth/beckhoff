@@ -42,14 +42,26 @@ import (
 )
 
 func main() {
-	srv := server.NewServer(25000, "ADS server")
 
-	if err := srv.Start(); err != nil {
-		log.Fatalf("failed to start ADS server: %v", err)
-	}
+    srv := server.NewServer(25000, "My ADS Server")
 
-	// block forever (simple dev version)
-	select {}
+    // Custom ads read
+    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
+    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
+        if ig == 1000 && io == 1 {
+            binary.LittleEndian.PutUint16(buf, 42)
+            return ads.NoError
+        }
+
+        return ads.NoError
+    }
+
+    // Start server
+    if err := srv.Start(); err != nil {
+        log.Fatalf("Failed to start: %v", err)
+    }
+ 
+    select {} // keep running
 }
 ```
 
