@@ -1,32 +1,39 @@
 package main
 
 import (
-    "encoding/binary"
-    "log"
+	"encoding/binary"
+	"log"
 
-    "github.com/PeterZerlauth/beckhoff/ads"
-    "github.com/PeterZerlauth/beckhoff/server"
+	"github.com/PeterZerlauth/beckhoff/ads"
+	"github.com/PeterZerlauth/beckhoff/router"
+	"github.com/PeterZerlauth/beckhoff/server"
 )
 
 func main() {
 
-    srv := server.NewServer(25000, "My ADS Server")
+	router := router.NewRouter()
 
-    // Custom ads read
-    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
-        if ig == 1000 && io == 1 {
-            binary.LittleEndian.PutUint16(buf, 42)
-            return ads.NoError
-        }
+	if err := router.Start(); err != nil {
+		log.Fatal(err)
+	}
 
-        return ads.NoError
-    }
+	srv := server.NewServer(25000, "My ADS Server")
 
-    // Start server
-    if err := srv.Start(); err != nil {
-        log.Fatalf("Failed to start: %v", err)
-    }
- 
-    select {} // keep running
+	// Custom ads read
+	srv.OnRead = func(indexGroup, indexOffset uint32, buf []byte) ads.ErrorCode {
+		srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(buf))
+		if indexGroup == 1000 && indexOffset == 1 {
+			binary.LittleEndian.PutUint16(buf, 42)
+			return ads.NoError
+		}
+
+		return ads.NoError
+	}
+
+	// Start server
+	if err := srv.Start(); err != nil {
+		log.Fatalf("Failed to start: %v", err)
+	}
+
+	select {} // keep running
 }

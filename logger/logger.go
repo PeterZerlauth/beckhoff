@@ -1,4 +1,4 @@
-package server
+package logger
 
 import (
 	"io"

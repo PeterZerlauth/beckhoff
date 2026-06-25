@@ -7,6 +7,7 @@ import (
 
 	"github.com/PeterZerlauth/beckhoff/ads"
 	"github.com/PeterZerlauth/beckhoff/ams"
+	"github.com/PeterZerlauth/beckhoff/logger"
 )
 
 /* ===================== SERVER ===================== */
@@ -18,18 +19,18 @@ type Server struct {
 	mu sync.RWMutex
 
 	log    *slog.Logger
-	logger *Logger
+	logger *logger.Logger
 
-	// ✅ custom hooks
-	OnRead      func(ig, io uint32, readData []byte) ads.ErrorCode
-	OnWrite     func(ig, io uint32, dataData []byte) ads.ErrorCode
-	OnReadWrite func(ig, io uint32, readData []byte, writeData []byte) ads.ErrorCode
+	// ads commands
+	OnRead      func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode
+	OnWrite     func(indexGroup, indexOffset uint32, dataData []byte) ads.ErrorCode
+	OnReadWrite func(indexGroup, indexOffset uint32, readData []byte, writeData []byte) ads.ErrorCode
 }
 
 /* ===================== CONSTRUCTOR ===================== */
 
 func NewServer(port uint16, name string) *Server {
-	logger := NewLogger("logger.log", 5)
+	logger := logger.NewLogger("logger.log", 5)
 
 	s := &Server{
 		name:   name,
@@ -63,7 +64,7 @@ func (s *Server) Close() {
 		s.conn.Close()
 	}
 	if s.log != nil {
-		s.log.Info("server shutting down")
+		s.log.Info("server close")
 	}
 	if s.logger != nil {
 		s.logger.Close()
@@ -74,11 +75,11 @@ func (s *Server) Close() {
 
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
-	cmd := binary.LittleEndian.Uint16(amsPackage[16:18])
+	command := binary.LittleEndian.Uint16(amsPackage[16:18])
 	invoke := binary.LittleEndian.Uint32(amsPackage[28:32])
 	request := amsPackage[ams.HeaderSize:]
 
-	switch cmd {
+	switch command {
 
 	case ads.CmdReadDeviceInfo:
 		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
@@ -152,7 +153,7 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	}
 
 	writeData := req[16 : 16+writeLen]
-	readData:= make([]byte, readLen)
+	readData := make([]byte, readLen)
 
 	s.mu.Lock()
 	var err ads.ErrorCode
@@ -168,6 +169,5 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 }
 
 func (s *Server) Log() *slog.Logger {
-    return s.log
+	return s.log
 }
-
