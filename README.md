@@ -5,7 +5,7 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 
 ---
 
-## 🚀 Features
+## Features
 
 - ADS TCP communication (via AMS Router)
 - Supports core ADS commands:
