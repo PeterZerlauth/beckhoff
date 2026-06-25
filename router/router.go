@@ -48,20 +48,20 @@ func (r *Router) SetRoutes(cfg *Config) error {
 }
 func (r *Router) Start() error {
 
-	// ✅ 1. Load config first
+	// Load config
 	cfg, err := LoadConfig("settings.json")
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// ✅ 2. Initialize router (NetID + remote connections)
+	// Set Routes
 	if err := r.SetRoutes(cfg); err != nil {
 		return fmt.Errorf("failed to init router: %w", err)
 	}
-
+	// localhost and ads router port
 	address := "127.0.0.1:48898"
 
-	// ✅ 3. Start TCP listener
+	// Start TCP listener
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		if errors.Is(err, syscall.EADDRINUSE) {
@@ -73,7 +73,7 @@ func (r *Router) Start() error {
 
 	r.listener = ln
 
-	log.Println("ADS Router listening on", address)
+	log.Println("ADS Router started")
 
 	go r.acceptLoop()
 
@@ -100,7 +100,7 @@ func (r *Router) acceptLoop() {
 
 func (r *Router) Register(id AmsNetId, c *Client) {
 	r.routes[id] = c
-	log.Printf("Route registered: %v %v -> %s\n", r.localNetId, id, c.conn.RemoteAddr())
+	log.Printf("Ads route: %v %v -> %s\n", r.localNetId, id, c.conn.RemoteAddr())
 }
 
 func (r *Router) Unregister(id AmsNetId, c *Client) {
@@ -195,17 +195,3 @@ func parseNetIdString(s string) (AmsNetId, error) {
 	return id, nil
 }
 
-func generateNetId(conn net.Conn) AmsNetId {
-	var id AmsNetId
-
-	ip := conn.RemoteAddr().(*net.TCPAddr).IP.To4()
-	if ip != nil {
-		copy(id[0:4], ip)
-	}
-
-	now := time.Now().UnixNano()
-	id[4] = byte(now)
-	id[5] = byte(now >> 8)
-
-	return id
-}
