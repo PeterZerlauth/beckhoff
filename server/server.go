@@ -1,433 +1,209 @@
 package server
 
 import (
-	"bytes"
 	"encoding/binary"
-	"io"
 	"log/slog"
-	"net"
-	"os"
 	"sync"
 
 	"github.com/PeterZerlauth/beckhoff/ads"
 	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
-type Server struct {
-	conn  net.Conn
-	port  uint16
-	netid ams.NetId
+/* ===================== SERVER ===================== */
 
-	mem map[[2]uint32][]byte
+type Server struct {
+	conn *ams.Connection
+	name string
+
+	mem map[uint32]map[uint32][]byte // IG -> IO -> data
 	mu  sync.RWMutex
 
-	wmu sync.Mutex
-
-	jobs chan []byte
-	log  *slog.Logger
-
-	symbol *SymbolTable
+	log    *slog.Logger
+	logger *Logger
 }
 
-var bufPool = sync.Pool{
-	New: func() any {
-		return make([]byte, 0, 1024)
-	},
-}
+/* ===================== CONSTRUCTOR ===================== */
 
-func New(port uint16) *Server {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level:     slog.LevelDebug,
-		AddSource: false,
-	}))
+func NewServer(port uint16, name string) *Server {
+	logger := NewLogger("logger.log", 5) // keep last 5 days
 
-	return &Server{
-		port:   port,
-		mem:    make(map[[2]uint32][]byte),
-		jobs:   make(chan []byte, 1024),
-		log:    logger,
-		symbol: NewSymbolTable(),
+	s := &Server{
+		name:   name,
+		mem:    make(map[uint32]map[uint32][]byte),
+		log:    logger.Slog(),
+		logger: logger,
 	}
+
+	s.conn = ams.NewConnection(port, s, s.log)
+
+	return s
 }
+
+/* ===================== LIFECYCLE ===================== */
 
 func (s *Server) Start() error {
-	conn, err := net.Dial("tcp", "127.0.0.1:48898")
-	if err != nil {
-		s.log.Error("Ads server", "err", err)
-		return err
-	}
-	s.conn = conn
-
-	if err := s.register(); err != nil {
-		s.log.Error("Ads server", "err", err)
+	if err := s.conn.Start(); err != nil {
+		s.log.Error("server start failed", "error", err)
 		return err
 	}
 
-	s.log.Info("Ads server started", "NetID", s.netid, "Port", s.port)
+	s.log.Info("server started", "netid", s.conn.NetID(), "port", s.conn.Port())
 
-	for i := 0; i < 4; i++ {
-		go s.worker()
-	}
-
-	go s.loop()
 	return nil
 }
 
-func (s *Server) register() error {
-	var req [8]byte
-	req[1] = 16
-	req[2] = 2
-	binary.LittleEndian.PutUint16(req[6:], s.port)
-
-	if _, err := s.conn.Write(req[:]); err != nil {
-		return err
-	}
-
-	var res [14]byte
-	if _, err := io.ReadFull(s.conn, res[:]); err != nil {
-		return err
-	}
-
-	copy(s.netid[:], res[6:12])
-	s.port = binary.LittleEndian.Uint16(res[12:14])
-
-	s.log.Debug("Ads server registered")
-	return nil
+func (s *Server) NetID() string {
+	return s.conn.NetID()
 }
 
-func (s *Server) loop() {
-	for {
-		p, err := s.readPacket()
-		if err != nil {
-			s.log.Error("connection closed", "err", err)
-			return
-		}
-		s.jobs <- p
+func (s *Server) Close() {
+	if s.conn != nil {
+		s.conn.Close()
 	}
+	if s.log != nil {
+		s.log.Info("server shutting down")
+	}
+
+	if s.logger != nil {
+		s.logger.Close()
+	}
+
 }
 
-func (s *Server) worker() {
-	for p := range s.jobs {
-		s.handle(p)
-		bufPool.Put(p[:0])
-	}
-}
+/* ===================== HANDLER ===================== */
 
-func (s *Server) readPacket() ([]byte, error) {
-	var tcp [ads.TcpHeaderSize]byte
+func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
-	if _, err := io.ReadFull(s.conn, tcp[:]); err != nil {
-		return nil, err
-	}
-
-	length := binary.LittleEndian.Uint32(tcp[2:])
-	buf := bufPool.Get().([]byte)
-
-	if cap(buf) < int(length) {
-		buf = make([]byte, length)
-	}
-	buf = buf[:length]
-
-	if _, err := io.ReadFull(s.conn, buf); err != nil {
-		return nil, err
-	}
-
-	return buf, nil
-}
-
-func (s *Server) handle(p []byte) {
-	cmd := binary.LittleEndian.Uint16(p[16:18])
-	invoke := binary.LittleEndian.Uint32(p[28:32])
-	request := p[ams.HeaderSize:]
+	cmd := binary.LittleEndian.Uint16(amsPackage[16:18])
+	invoke := binary.LittleEndian.Uint32(amsPackage[28:32])
+	request := amsPackage[ams.HeaderSize:]
 
 	switch cmd {
 
 	case ads.CmdReadDeviceInfo:
-		s.log.Debug("CmdReadDeviceInfo")
-		s.sendDeviceInfo(p, invoke)
+		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
+
+	case ads.CmdReadState:
+		return s.buildReadState(amsPackage, invoke)
 
 	case ads.CmdRead:
-		ig := binary.LittleEndian.Uint32(request[0:4])
-		io := binary.LittleEndian.Uint32(request[4:8])
-		length := binary.LittleEndian.Uint32(request[8:12])
-
-		s.log.Debug("Ads read",
-			"IndexGroup", ig,
-			"IndexOffset", io,
-			"Length", length,
-		)
-
-		data, err := s.Read(ig, io, length)
-		s.sendReadResponse(p, invoke, err, data)
+		return s.handleRead(amsPackage, request, invoke)
 
 	case ads.CmdWrite:
-		ig := binary.LittleEndian.Uint32(request[0:4])
-		io := binary.LittleEndian.Uint32(request[4:8])
-		length := binary.LittleEndian.Uint32(request[8:12])
-		data := request[12 : 12+length]
-
-		s.log.Debug("Ads write",
-			"IndexGroup", ig,
-			"IndexOffset", io,
-			"Length", length,
-		)
-
-		err := s.Write(ig, io, append([]byte{}, data...))
-
-		body := make([]byte, 4)
-		binary.LittleEndian.PutUint32(body, uint32(err))
-		s.sendRaw(p, ads.CmdWrite, invoke, 4, body)
+		return s.handleWrite(amsPackage, request, invoke)
 
 	case ads.CmdReadWrite:
-		ig := binary.LittleEndian.Uint32(request[0:4])
-		io := binary.LittleEndian.Uint32(request[4:8])
-		readLen := binary.LittleEndian.Uint32(request[8:12])
-		writeLen := binary.LittleEndian.Uint32(request[12:16])
-		writeData := request[16 : 16+writeLen]
-
-		s.log.Debug("Ads read/write",
-			"IndexGroup", ig,
-			"IndexOffset", io,
-			"ReadLen", readLen,
-			"WriteLen", writeLen,
-		)
-
-		// Get handle by name
-		if ig == 0xF003 {
-			name := string(bytes.TrimRight(writeData, "\x00"))
-
-			handle, errCode := s.symbol.GetHandle(name)
-
-			if errCode != ads.NoError {
-				s.log.Warn("Ads symbol not found", "name", name)
-
-				s.sendReadWriteResponse(p, invoke, errCode, nil)
-				return
-			}
-
-			s.log.Debug("Ads get handle", "name", name, "handle", handle)
-			s.sendHandleResponse(p, invoke, handle)
-
-			return
-		}
-
-		data, err := s.ReadWrite(ig, io, readLen, writeData)
-		s.sendReadWriteResponse(p, invoke, err, data)
-	}
-}
-
-/* ===================== CORE ===================== */
-func (s *Server) Write(indexGroup, indexOffset uint32, data []byte) ads.ErrorCode {
-
-	s.log.Debug("Ads Write",
-		"IndexGroup", indexGroup,
-		"IndexOffset", indexOffset,
-	)
-
-	// ✅ Symbol write (ADS handles)
-	if indexGroup == 0xF005 || indexGroup == 0xF006 {
-
-		name, ok := s.symbol.Name(indexOffset)
-		if ok {
-			s.log.Debug("Ads Write Symbol",
-				"handle", indexOffset,
-				"symbol", name,
-				"size", len(data),
-			)
-		} else {
-			s.log.Warn("Ads unknown handle", "handle", indexOffset)
-			return ads.SymbolNotFound
-		}
-
-		return s.symbol.Write(indexOffset, data)
+		return s.handleReadWrite(amsPackage, request, invoke)
 	}
 
-	// ✅ fallback
-	return s.OnWrite(indexGroup, indexOffset, data)
+	return nil, nil
 }
 
-func (s *Server) Read(indexGroup, indexOffset, length uint32) ([]byte, ads.ErrorCode) {
-	if indexGroup == 0xF005 {
-		name, ok := s.symbol.Name(indexOffset)
-		if ok {
-			s.log.Debug("Read symbol",
-				"symbol", name,
-				"handle", indexOffset,
-			)
-		}
+/* ===================== COMMANDS ===================== */
 
-		data, err := s.symbol.Read(indexOffset)
-		if err != ads.NoError {
-			s.log.Warn("ads symbol not found", "handle", indexOffset)
-			return nil, err
-		}
+func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error) {
+	ig := binary.LittleEndian.Uint32(req[0:4])
+	io := binary.LittleEndian.Uint32(req[4:8])
+	length := binary.LittleEndian.Uint32(req[8:12])
 
-		if int(length) < len(data) {
-			data = data[:length]
-		}
-		return data, ads.NoError
-	}
+	buf := make([]byte, length)
 
-	return s.OnRead(indexGroup, indexOffset, length)
-}
-
-func (s *Server) ReadWrite(indexGroup, indexOffset, length uint32, writeData []byte) ([]byte, ads.ErrorCode) {
-	switch indexGroup {
-
-	case 0xF005:
-		handle := binary.LittleEndian.Uint32(writeData)
-		s.log.Debug("Ads read write", "handle", handle)
-		return s.symbol.Read(handle)
-
-	case 0xF006:
-		handle := binary.LittleEndian.Uint32(writeData[:4])
-		s.log.Debug("Ads read write", "handle", handle)
-
-		if len(writeData) > 4 {
-			return nil, s.symbol.Write(handle, writeData[4:])
-		}
-		return nil, ads.NoError
-	}
-
-	return s.OnReadWrite(indexGroup, indexOffset, length, writeData)
-}
-
-func (s *Server) OnRead(indexGroup, indexOffset, length uint32) ([]byte, ads.ErrorCode) {
 	s.mu.RLock()
-	data := s.mem[[2]uint32{indexGroup, indexOffset}]
+	err := s.OnRead(ig, io, buf)
 	s.mu.RUnlock()
 
-	s.log.Debug("function OnRead",
-		"IndexGroup", indexGroup,
-		"IndexOffset", indexOffset,
-	)
-
-	if len(data) == 0 {
-		return make([]byte, length), ads.NoError
-	}
-
-	if int(length) < len(data) {
-		return data[:length], ads.NoError
-	}
-
-	return data, ads.NoError
+	return buildReadResponse(p, invoke, err, buf), nil
 }
 
-func (s *Server) OnWrite(indexGroup, indexOffset uint32, data []byte) ads.ErrorCode {
-	s.log.Debug("OnWrite",
-		"IndexGroup", indexGroup,
-		"IndexOffset", indexOffset,
-		"Size", len(data),
-	)
+func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
+	ig := binary.LittleEndian.Uint32(req[0:4])
+	io := binary.LittleEndian.Uint32(req[4:8])
+	length := binary.LittleEndian.Uint32(req[8:12])
 
-	// store into memory (generic ADS memory area)
-	cp := append([]byte{}, data...)
+	data := req[12 : 12+length]
+	s.mu.Lock()
+	err := s.OnWrite(ig, io, data)
+	s.mu.Unlock()
+
+	return buildWriteResponse(p, invoke, err), nil
+}
+
+func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
+	ig := binary.LittleEndian.Uint32(req[0:4])
+	io := binary.LittleEndian.Uint32(req[4:8])
+	readLen := binary.LittleEndian.Uint32(req[8:12])
+	writeLen := binary.LittleEndian.Uint32(req[12:16])
+
+	// safety check
+	if int(16+writeLen) > len(req) {
+		return buildReadWriteResponse(p, invoke, ads.InvalidParameter, nil), nil
+	}
+
+	writeData := req[16 : 16+writeLen]
+
+	readBuf := make([]byte, readLen)
 
 	s.mu.Lock()
-	s.mem[[2]uint32{indexGroup, indexOffset}] = cp
+	err := s.OnReadWrite(ig, io, readBuf, writeData)
 	s.mu.Unlock()
+
+	return buildReadWriteResponse(p, invoke, err, readBuf), nil
+}
+
+/* ===================== CORE API ===================== */
+
+/* ===================== INTERNAL HELPERS ===================== */
+
+func (s *Server) getGroup(ig uint32) map[uint32][]byte {
+	group := s.mem[ig]
+	if group == nil {
+		group = make(map[uint32][]byte)
+		s.mem[ig] = group
+	}
+	return group
+}
+
+/* ===================== MEMORY ===================== */
+
+func (s *Server) OnRead(ig, io uint32, buf []byte) ads.ErrorCode {
+	s.log.Debug("OnRead", "ig", ig, "io", io, "length", len(buf))
+	group := s.mem[ig]
+	if group != nil {
+		data := group[io]
+		copy(buf, data)
+	}
+	return ads.NoError
+}
+
+func (s *Server) OnWrite(ig, io uint32, data []byte) ads.ErrorCode {
+	s.log.Debug("OnWrite", "ig", ig, "io", io, "length", len(data))
+	cp := make([]byte, len(data))
+	copy(cp, data) // protect against buffer reuse
+
+	group := s.getGroup(ig)
+	group[io] = cp
 
 	return ads.NoError
 }
 
-func (s *Server) OnReadWrite(indexGroup, indexOffset, readLen uint32, writeData []byte) ([]byte, ads.ErrorCode) {
-	s.log.Debug("function OnReadWrite",
-		"IndexGroup", indexGroup,
-		"IndexOffset", indexOffset,
-		"ReadLen", readLen,
-		"WriteLen", len(writeData),
-	)
+func (s *Server) OnReadWrite(ig, io uint32, readBuf []byte, writeData []byte) ads.ErrorCode {
+	s.log.Debug("OnReadWrite", "ig", ig, "io", io, "readLength", len(readBuf), "writeLength", len(writeData))
+	group := s.getGroup(ig)
 
-	// WRITE phase (if any)
 	if len(writeData) > 0 {
-		cp := append([]byte{}, writeData...) // avoid buffer reuse issues
-
-		s.mu.Lock()
-		s.mem[[2]uint32{indexGroup, indexOffset}] = cp
-		s.mu.Unlock()
+		cp := make([]byte, len(writeData))
+		copy(cp, writeData)
+		group[io] = cp
 	}
 
-	// READ phase
-	s.mu.RLock()
-	data := s.mem[[2]uint32{indexGroup, indexOffset}]
-	s.mu.RUnlock()
+	data := group[io]
 
-	if int(readLen) < len(data) {
-		return data[:readLen], ads.NoError
+	// copy to read buffer safely
+	n := len(data)
+	if n > len(readBuf) {
+		n = len(readBuf)
 	}
+	copy(readBuf[:n], data[:n])
 
-	return data, ads.NoError
-}
-
-/* ===================== RESPONSES ===================== */
-
-func (s *Server) sendHandleResponse(req []byte, invoke uint32, handle uint32) {
-	body := make([]byte, 8)
-	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
-	binary.LittleEndian.PutUint32(body[4:8], handle)
-	s.sendRaw(req, ads.CmdReadWrite, invoke, 8, body)
-}
-
-func (s *Server) sendReadResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) {
-	body := make([]byte, 8+len(data))
-	binary.LittleEndian.PutUint32(body[0:4], uint32(err))
-	binary.LittleEndian.PutUint32(body[4:8], uint32(len(data)))
-	copy(body[8:], data)
-	s.sendRaw(req, ads.CmdRead, invoke, uint32(len(body)), body)
-}
-
-func (s *Server) sendReadWriteResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) {
-	body := make([]byte, 8+len(data))
-	binary.LittleEndian.PutUint32(body[0:4], uint32(err))
-	binary.LittleEndian.PutUint32(body[4:8], uint32(len(data)))
-	copy(body[8:], data)
-	s.sendRaw(req, ads.CmdReadWrite, invoke, uint32(len(body)), body)
-}
-
-func (s *Server) sendDeviceInfo(req []byte, invoke uint32) {
-	body := make([]byte, 24)
-	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
-	body[4] = 1
-	body[5] = 0
-	binary.LittleEndian.PutUint16(body[6:8], 1)
-	copy(body[8:], []byte("Go ADS Server"))
-	s.sendRaw(req, ads.CmdReadDeviceInfo, invoke, uint32(len(body)), body)
-}
-
-/* ===================== SEND ===================== */
-
-func (s *Server) sendRaw(req []byte, cmd uint16, invoke uint32, dataLen uint32, payload []byte) {
-	total := ams.HeaderSize + dataLen
-
-	buf := make([]byte, 0, ads.TcpHeaderSize+total)
-	buf = binary.LittleEndian.AppendUint16(buf, 0)
-	buf = binary.LittleEndian.AppendUint32(buf, total)
-
-	buf = append(buf, req[8:14]...)
-	buf = binary.LittleEndian.AppendUint16(buf, binary.LittleEndian.Uint16(req[14:16]))
-
-	buf = append(buf, req[0:6]...)
-	buf = binary.LittleEndian.AppendUint16(buf, binary.LittleEndian.Uint16(req[6:8]))
-
-	buf = binary.LittleEndian.AppendUint16(buf, cmd)
-	buf = binary.LittleEndian.AppendUint16(buf, 0x0005)
-	buf = binary.LittleEndian.AppendUint32(buf, dataLen)
-	buf = binary.LittleEndian.AppendUint32(buf, 0)
-	buf = binary.LittleEndian.AppendUint32(buf, invoke)
-
-	buf = append(buf, payload...)
-
-	s.wmu.Lock()
-	_, _ = s.conn.Write(buf)
-	s.wmu.Unlock()
-}
-
-/* ===================== UTIL ===================== */
-
-func (s *Server) NetID() string {
-	return s.netid.String()
-}
-
-func (s *Server) Symbol() *SymbolTable {
-	return s.symbol
+	return ads.NoError
 }

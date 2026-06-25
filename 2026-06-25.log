@@ -1,0 +1,37 @@
+time=2026-06-25T10:34:58.237+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T10:37:36.183+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T10:37:42.167+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4000
+time=2026-06-25T10:37:59.543+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=4000
+time=2026-06-25T10:38:12.982+02:00 level=DEBUG msg=OnReadWrite ig=1 io=2 readLength=4000 writeLength=4000
+time=2026-06-25T10:45:33.309+02:00 level=DEBUG msg=ReadState
+time=2026-06-25T10:52:29.315+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:00:46.897+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4
+time=2026-06-25T11:06:59.641+02:00 level=ERROR msg="Read failed" error=EOF
+time=2026-06-25T11:06:59.642+02:00 level=ERROR msg="register failed" error=EOF
+time=2026-06-25T11:06:59.642+02:00 level=ERROR msg="server start failed" error=EOF
+time=2026-06-25T11:07:10.294+02:00 level=ERROR msg="Read failed" error=EOF
+time=2026-06-25T11:07:10.295+02:00 level=ERROR msg="register failed" error=EOF
+time=2026-06-25T11:07:10.295+02:00 level=ERROR msg="server start failed" error=EOF
+time=2026-06-25T11:07:40.604+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:09:00.421+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:19:36.121+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:19:43.392+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=4
+time=2026-06-25T11:33:01.677+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:33:53.562+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:33:58.717+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:34:08.228+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:34:14.004+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:34:37.763+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4
+time=2026-06-25T11:34:47.199+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:34:52.315+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4
+time=2026-06-25T11:35:08.452+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:35:12.956+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:35:20.533+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4
+time=2026-06-25T11:35:28.668+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:35:45.732+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:36:33.028+02:00 level=DEBUG msg=OnWrite ig=1 io=2 length=4
+time=2026-06-25T11:37:28.427+02:00 level=DEBUG msg=OnRead ig=1 io=2 length=80000
+time=2026-06-25T11:39:17.691+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:39:25.116+02:00 level=DEBUG msg=ReadState
+time=2026-06-25T11:44:56.476+02:00 level=INFO msg="server started" netid=10.58.15.33.1.1 port=25000
+time=2026-06-25T11:45:03.674+02:00 level=DEBUG msg=ReadDeviceInfo name="Ads server" major=1 minor=2 minor=3
