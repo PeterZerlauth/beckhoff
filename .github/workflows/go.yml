@@ -1,0 +1,28 @@
+# This workflow will build a golang project
+# For more information see httpsdocs.github.comenactionsautomating-builds-and-testsbuilding-and-testing-go
+
+name Go
+
+on
+  push
+    branches [ main ]
+  pull_request
+    branches [ main ]
+
+jobs
+
+  build
+    runs-on ubuntu-latest
+    steps
+    - uses actionscheckout@v4
+
+    - name Set up Go
+      uses actionssetup-go@v4
+      with
+        go-version '1.26.4'
+
+    - name Build
+      run go build -v ....
+
+    - name Test
+      run go test -v ....
