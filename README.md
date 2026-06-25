@@ -28,10 +28,12 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 ## Open Points
 
 * ADS Symbol support
+* ADS router for standalone operation on linux
+* ADS client 
 
 ---
 
-## Example
+## Example main
 ```go
 package main
 
@@ -83,12 +85,7 @@ func main() {
 ```go
 // Custom ADS ReadWrite
 srv.OnReadWrite = func(ig, io uint32, readBuf []byte, writeBuf []byte) ads.ErrorCode {
-	srv.Log().Info("Ads ReadWrite", 
-		"ig", ig, 
-		"io", io, 
-		"readLen", len(readBuf), 
-		"writeLen", len(writeBuf),
-	)
+	srv.Log().Info("Ads ReadWrite", "ig", ig, "io", io, "readLen", len(readBuf), "writeLen", len(writeBuf))
 
 	if ig == 1000 && io == 3 {
 		// Example: use write input to compute response
@@ -110,4 +107,17 @@ srv.OnReadWrite = func(ig, io uint32, readBuf []byte, writeBuf []byte) ads.Error
 }
 ```
 
+## Contributing
+
+Contributions are welcome and appreciated — especially since this is an experimental ADS server implementation.
+
+### Ways to contribute
+
+- Improve protocol compatibility with TwinCAT ADS
+- Add Linux/standalone AMS router
+- Implement missing ADS features (symbols support, notifications)
+- Extend client-side tooling for testing
+- Fix edge cases in packet parsing or error handling
+- Improve logging, debugging, and tracing
+- Add unit and integration tests
 
