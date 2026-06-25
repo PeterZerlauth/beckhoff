@@ -14,9 +14,10 @@ func main() {
 	srv := server.NewServer(25000, "Ads server")
 
 	srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-		fmt.Println("Custom OnRead:", ig, io)
+		fmt.Print("Custom OnRead: ", ig, io)
 
-		if ig == 1000 && io == 1 {
+		if ig == 1 && io == 2 {
+			fmt.Println(" Something special")
 			binary.LittleEndian.PutUint16(buf, 1234)
 			return ads.NoError
 		}

@@ -113,7 +113,8 @@ func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error)
 	if s.OnRead != nil {
 		err = s.OnRead(ig, io, buf)
 	} else {
-		err = ads.NoError
+		s.log.Error("OnRead not implemented")
+		err = ads.InvalidIndexOffset
 	}
 	s.mu.RUnlock()
 
@@ -132,7 +133,8 @@ func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error
 	if s.OnWrite != nil {
 		err = s.OnWrite(ig, io, data)
 	} else {
-		err = ads.NoError
+		s.log.Error("OnWrite not implemented")
+		err = ads.InvalidIndexOffset
 	}
 	s.mu.Unlock()
 
@@ -157,7 +159,8 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	if s.OnReadWrite != nil {
 		err = s.OnReadWrite(ig, io, readBuf, writeData)
 	} else {
-		err = ads.NoError
+		s.log.Error("OnReadWrite not implemented")
+		err = ads.InvalidIndexOffset
 	}
 	s.mu.Unlock()
 
