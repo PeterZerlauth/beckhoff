@@ -33,6 +33,15 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 
 ---
 
+## Get started
+```batch
+mkdir ads-client
+cd ads-client
+
+go mod init ads-client
+go get github.com/PeterZerlauth/beckho
+```go
+
 ## Example main
 ```go
 package main
