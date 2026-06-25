@@ -1,12 +1,8 @@
 # Experimental ADS Server (Go)
 
----
-
 This is an experimental implementation of a **Beckhoff ADS server** written in Go.
 
 It provides a lightweight, in-memory ADS endpoint that can be used for testing, simulation, and development without requiring a real PLC.
-
----
 
 ## Features
 
@@ -23,15 +19,20 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
   * Terminal
   * File
 
----
-
 ## Open Points
 
 * ADS Symbol support
 * ADS router for standalone operation on linux
 * ADS client 
 
----
+## Get started
+```batch
+mkdir ads-client
+cd ads-client
+
+go mod init ads-client
+go get github.com/PeterZerlauth/beckhoff
+```
 
 ## Example main
 ```go
