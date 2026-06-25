@@ -166,3 +166,8 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 
 	return buildReadWriteResponse(p, invoke, err, readBuf), nil
 }
+
+func (s *Server) Log() *slog.Logger {
+    return s.log
+}
+

@@ -1,33 +1,32 @@
 package main
 
 import (
-	"encoding/binary"
-	"fmt"
-	"log"
+    "encoding/binary"
+    "log"
 
-	"github.com/PeterZerlauth/beckhoff/ads"
-	"github.com/PeterZerlauth/beckhoff/server"
+    "github.com/PeterZerlauth/beckhoff/ads"
+    "github.com/PeterZerlauth/beckhoff/server"
 )
 
 func main() {
 
-	srv := server.NewServer(25000, "Ads server")
+    srv := server.NewServer(25000, "My ADS Server")
 
-	srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
-		fmt.Print("Custom OnRead: ", ig, io)
+    // ✅ Custom read behavior
+    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
+    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
+        if ig == 1000 && io == 1 {
+            binary.LittleEndian.PutUint16(buf, 42)
+            return ads.NoError
+        }
 
-		if ig == 1 && io == 2 {
-			fmt.Println(" Something special")
-			binary.LittleEndian.PutUint16(buf, 1234)
-			return ads.NoError
-		}
+        return ads.NoError
+    }
 
-		return ads.NoError
-	}
-
-	if err := srv.Start(); err != nil {
-		log.Fatalf("Failed to start ADS server: %v", err)
-	}
-
-	select {}
+    // ✅ Start server
+    if err := srv.Start(); err != nil {
+        log.Fatalf("Failed to start: %v", err)
+    }
+ 
+    select {} // keep running
 }
