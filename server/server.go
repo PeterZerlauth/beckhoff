@@ -15,21 +15,24 @@ type Server struct {
 	conn *ams.Connection
 	name string
 
-	mem map[uint32]map[uint32][]byte // IG -> IO -> data
-	mu  sync.RWMutex
+	mu sync.RWMutex
 
 	log    *slog.Logger
 	logger *Logger
+
+	// ✅ custom hooks
+	OnRead      func(ig, io uint32, buf []byte) ads.ErrorCode
+	OnWrite     func(ig, io uint32, data []byte) ads.ErrorCode
+	OnReadWrite func(ig, io uint32, readBuf []byte, writeData []byte) ads.ErrorCode
 }
 
 /* ===================== CONSTRUCTOR ===================== */
 
 func NewServer(port uint16, name string) *Server {
-	logger := NewLogger("logger.log", 5) // keep last 5 days
+	logger := NewLogger("logger.log", 5)
 
 	s := &Server{
 		name:   name,
-		mem:    make(map[uint32]map[uint32][]byte),
 		log:    logger.Slog(),
 		logger: logger,
 	}
@@ -48,7 +51,6 @@ func (s *Server) Start() error {
 	}
 
 	s.log.Info("server started", "netid", s.conn.NetID(), "port", s.conn.Port())
-
 	return nil
 }
 
@@ -63,11 +65,9 @@ func (s *Server) Close() {
 	if s.log != nil {
 		s.log.Info("server shutting down")
 	}
-
 	if s.logger != nil {
 		s.logger.Close()
 	}
-
 }
 
 /* ===================== HANDLER ===================== */
@@ -81,7 +81,7 @@ func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 	switch cmd {
 
 	case ads.CmdReadDeviceInfo:
-		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 456), nil
+		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
 
 	case ads.CmdReadState:
 		return s.buildReadState(amsPackage, invoke)
@@ -109,7 +109,12 @@ func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error)
 	buf := make([]byte, length)
 
 	s.mu.RLock()
-	err := s.OnRead(ig, io, buf)
+	var err ads.ErrorCode
+	if s.OnRead != nil {
+		err = s.OnRead(ig, io, buf)
+	} else {
+		err = ads.NoError
+	}
 	s.mu.RUnlock()
 
 	return buildReadResponse(p, invoke, err, buf), nil
@@ -121,8 +126,14 @@ func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error
 	length := binary.LittleEndian.Uint32(req[8:12])
 
 	data := req[12 : 12+length]
+
 	s.mu.Lock()
-	err := s.OnWrite(ig, io, data)
+	var err ads.ErrorCode
+	if s.OnWrite != nil {
+		err = s.OnWrite(ig, io, data)
+	} else {
+		err = ads.NoError
+	}
 	s.mu.Unlock()
 
 	return buildWriteResponse(p, invoke, err), nil
@@ -134,76 +145,21 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	readLen := binary.LittleEndian.Uint32(req[8:12])
 	writeLen := binary.LittleEndian.Uint32(req[12:16])
 
-	// safety check
 	if int(16+writeLen) > len(req) {
 		return buildReadWriteResponse(p, invoke, ads.InvalidParameter, nil), nil
 	}
 
 	writeData := req[16 : 16+writeLen]
-
 	readBuf := make([]byte, readLen)
 
 	s.mu.Lock()
-	err := s.OnReadWrite(ig, io, readBuf, writeData)
+	var err ads.ErrorCode
+	if s.OnReadWrite != nil {
+		err = s.OnReadWrite(ig, io, readBuf, writeData)
+	} else {
+		err = ads.NoError
+	}
 	s.mu.Unlock()
 
 	return buildReadWriteResponse(p, invoke, err, readBuf), nil
-}
-
-/* ===================== CORE API ===================== */
-
-/* ===================== INTERNAL HELPERS ===================== */
-
-func (s *Server) getGroup(ig uint32) map[uint32][]byte {
-	group := s.mem[ig]
-	if group == nil {
-		group = make(map[uint32][]byte)
-		s.mem[ig] = group
-	}
-	return group
-}
-
-/* ===================== MEMORY ===================== */
-
-func (s *Server) OnRead(ig, io uint32, buf []byte) ads.ErrorCode {
-	s.log.Debug("OnRead", "ig", ig, "io", io, "length", len(buf))
-	group := s.mem[ig]
-	if group != nil {
-		data := group[io]
-		copy(buf, data)
-	}
-	return ads.NoError
-}
-
-func (s *Server) OnWrite(ig, io uint32, data []byte) ads.ErrorCode {
-	s.log.Debug("OnWrite", "ig", ig, "io", io, "length", len(data))
-	cp := make([]byte, len(data))
-	copy(cp, data) // protect against buffer reuse
-
-	group := s.getGroup(ig)
-	group[io] = cp
-
-	return ads.NoError
-}
-
-func (s *Server) OnReadWrite(ig, io uint32, readBuf []byte, writeData []byte) ads.ErrorCode {
-	s.log.Debug("OnReadWrite", "ig", ig, "io", io, "readLength", len(readBuf), "writeLength", len(writeData))
-	group := s.getGroup(ig)
-
-	if len(writeData) > 0 {
-		cp := make([]byte, len(writeData))
-		copy(cp, writeData)
-		group[io] = cp
-	}
-
-	data := group[io]
-
-	// copy to read buffer safely
-	n := len(data)
-	if n > len(readBuf) {
-		n = len(readBuf)
-	}
-	copy(readBuf[:n], data[:n])
-
-	return ads.NoError
 }
