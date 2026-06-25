@@ -31,7 +31,7 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
 
 ---
 
-## Open Points
+## Example
 ```go
 package main
 
@@ -45,6 +45,16 @@ func main() {
 
     srv := server.NewServer(25000, "My ADS Server")
 
+    // Start server
+    if err := srv.Start(); err != nil {
+        log.Fatalf("Failed to start: %v", err)
+    }
+ 
+    select {} // keep running
+}
+```
+## Ads read
+```go
     // Custom ads read
     srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
     	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
@@ -55,13 +65,49 @@ func main() {
 
         return ads.NoError
     }
+```
+## Ads write
+```go
+    // Custom ads read
+    srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
+    	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
+        if ig == 1000 && io == 1 {
+            binary.LittleEndian.PutUint16(buf, 42)
+            return ads.NoError
+        }
 
-    // Start server
-    if err := srv.Start(); err != nil {
-        log.Fatalf("Failed to start: %v", err)
+        return ads.NoError
     }
- 
-    select {} // keep running
+```
+## Ads read/write
+```go
+// Custom ADS ReadWrite
+srv.OnReadWrite = func(ig, io uint32, readBuf []byte, writeBuf []byte) ads.ErrorCode {
+	srv.Log().Info("Ads ReadWrite", 
+		"ig", ig, 
+		"io", io, 
+		"readLen", len(readBuf), 
+		"writeLen", len(writeBuf),
+	)
+
+	if ig == 1000 && io == 3 {
+		// Example: use write input to compute response
+		var input uint16
+		if len(writeBuf) >= 2 {
+			input = binary.LittleEndian.Uint16(writeBuf)
+		}
+
+		result := input * 2 // simple processing
+
+		if len(readBuf) >= 2 {
+			binary.LittleEndian.PutUint16(readBuf, result)
+		}
+
+		return ads.NoError
+	}
+
+	return ads.NoError
 }
 ```
+
 
