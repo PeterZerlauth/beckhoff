@@ -7,6 +7,7 @@ import (
 
 	"github.com/PeterZerlauth/beckhoff/ads"
 	"github.com/PeterZerlauth/beckhoff/ams"
+	"github.com/PeterZerlauth/beckhoff/logger"
 )
 
 /* ===================== SERVER ===================== */
@@ -18,9 +19,9 @@ type Server struct {
 	mu sync.RWMutex
 
 	log    *slog.Logger
-	logger *Logger
+	logger *logger.Logger
 
-	// ads commands 
+	// ads commands
 	OnRead      func(ig, io uint32, readData []byte) ads.ErrorCode
 	OnWrite     func(ig, io uint32, dataData []byte) ads.ErrorCode
 	OnReadWrite func(ig, io uint32, readData []byte, writeData []byte) ads.ErrorCode
@@ -29,7 +30,7 @@ type Server struct {
 /* ===================== CONSTRUCTOR ===================== */
 
 func NewServer(port uint16, name string) *Server {
-	logger := NewLogger("logger.log", 5)
+	logger := logger.NewLogger("logger.log", 5)
 
 	s := &Server{
 		name:   name,
@@ -152,7 +153,7 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	}
 
 	writeData := req[16 : 16+writeLen]
-	readData:= make([]byte, readLen)
+	readData := make([]byte, readLen)
 
 	s.mu.Lock()
 	var err ads.ErrorCode
@@ -168,6 +169,5 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 }
 
 func (s *Server) Log() *slog.Logger {
-    return s.log
+	return s.log
 }
-

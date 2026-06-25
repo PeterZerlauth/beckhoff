@@ -36,44 +36,50 @@ func (r *Router) SetRoutes(cfg *Config) error {
 	if err != nil {
 		return err
 	}
+
 	r.localNetId = netid
-
 	log.Println("Local NetID:", netid)
-
-	for _, rc := range cfg.AmsRouter.RemoteConnections {
-		go r.connectRemote(rc)
-	}
 
 	return nil
 }
-func (r *Router) Start() error {
 
+func (r *Router) Start() error {
 	// Load config
 	cfg, err := LoadConfig("settings.json")
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Set Routes
-	if err := r.SetRoutes(cfg); err != nil {
+	// Set local NetID only
+	netid, err := parseNetIdString(cfg.AmsRouter.NetId)
+	if err != nil {
 		return fmt.Errorf("failed to init router: %w", err)
 	}
-	// localhost and ads router port
+
+	r.localNetId = netid
+	log.Println("Local NetID:", netid)
+
+	// ADS Router port
 	address := "127.0.0.1:48898"
 
 	// Start TCP listener
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		if errors.Is(err, syscall.EADDRINUSE) {
-			log.Println("ADS Router already running on", address)
+		if errors.Is(err, syscall.Errno(10013)) {
+			log.Println("ADS Router disabled: port 48898 cannot be bound")
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to start ADS router: %w", err)
 	}
 
 	r.listener = ln
 
 	log.Println("ADS Router started")
+
+	// Connect remotes only after listener is running
+	for _, rc := range cfg.AmsRouter.RemoteConnections {
+		go r.connectRemote(rc)
+	}
 
 	go r.acceptLoop()
 
@@ -194,4 +200,3 @@ func parseNetIdString(s string) (AmsNetId, error) {
 	copy(id[:], b[:])
 	return id, nil
 }
-
