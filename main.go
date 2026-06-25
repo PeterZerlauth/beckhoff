@@ -14,7 +14,6 @@ func main() {
 
 	server := server.NewServer(25000, "Ads server")
 
-	// // ✅ add BOOL symbol
 	// server.Symbol().Add("Main.bTest", []byte{1})  // true
 	// server.Symbol().Add("Main.bTest2", []byte{1}) // true
 	// server.Symbol().Add("Main.bValue", []byte{1}) // true
