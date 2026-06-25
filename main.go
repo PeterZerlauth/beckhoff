@@ -12,7 +12,7 @@ func main() {
 
     srv := server.NewServer(25000, "My ADS Server")
 
-    // ✅ Custom read behavior
+    // Custom ads read
     srv.OnRead = func(ig, io uint32, buf []byte) ads.ErrorCode {
     	srv.Log().Info("Ads Read", "ig", ig, "io", io, "len", len(buf))
         if ig == 1000 && io == 1 {
@@ -23,7 +23,7 @@ func main() {
         return ads.NoError
     }
 
-    // ✅ Start server
+    // Start server
     if err := srv.Start(); err != nil {
         log.Fatalf("Failed to start: %v", err)
     }
