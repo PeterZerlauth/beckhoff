@@ -81,7 +81,7 @@ func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 	switch cmd {
 
 	case ads.CmdReadDeviceInfo:
-		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
+		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 456), nil
 
 	case ads.CmdReadState:
 		return s.buildReadState(amsPackage, invoke)

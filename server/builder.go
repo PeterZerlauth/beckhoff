@@ -36,7 +36,7 @@ func buildReadWriteResponse(req []byte, invoke uint32, err ads.ErrorCode, data [
 
 func (s *Server) buildReadDeviceInfo(req []byte, invoke uint32, name string, major byte, minor byte, build uint16) []byte {
 
-	body := make([]byte, 24)
+	var body [24]byte
 
 	// Result
 	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
@@ -44,6 +44,7 @@ func (s *Server) buildReadDeviceInfo(req []byte, invoke uint32, name string, maj
 	// Version (major, minor, build)
 	body[4] = major
 	body[5] = minor
+	//	binary.LittleEndian.PutUint16(body[6:8], build)
 	binary.LittleEndian.PutUint16(body[6:8], build)
 
 	// Device name (max 16 bytes)
@@ -55,10 +56,10 @@ func (s *Server) buildReadDeviceInfo(req []byte, invoke uint32, name string, maj
 
 	s.log.Debug("ReadDeviceInfo", "name", nameBytes, "major", major, "minor", minor, "build", build)
 
-	return buildAms(req, ads.CmdReadDeviceInfo, invoke, body)
+	return buildAms(req, ads.CmdReadDeviceInfo, invoke, body[:])
 }
 func (s *Server) buildReadState(req []byte, invoke uint32) ([]byte, error) {
-	body := make([]byte, 8)
+	var body [8]byte
 
 	// Result
 	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
@@ -71,7 +72,7 @@ func (s *Server) buildReadState(req []byte, invoke uint32) ([]byte, error) {
 
 	s.log.Debug("ReadState", "ADS State", ads.STATE_RUN, "Device State", 0)
 
-	return buildAms(req, ads.CmdReadState, invoke, body), nil
+	return buildAms(req, ads.CmdReadState, invoke, body[:]), nil
 }
 
 /* ===================== CORE AMS BUILDER ===================== */
