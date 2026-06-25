@@ -20,7 +20,7 @@ type Server struct {
 	log    *slog.Logger
 	logger *Logger
 
-	// ✅ custom hooks
+	// ads commands 
 	OnRead      func(ig, io uint32, readData []byte) ads.ErrorCode
 	OnWrite     func(ig, io uint32, dataData []byte) ads.ErrorCode
 	OnReadWrite func(ig, io uint32, readData []byte, writeData []byte) ads.ErrorCode
@@ -63,7 +63,7 @@ func (s *Server) Close() {
 		s.conn.Close()
 	}
 	if s.log != nil {
-		s.log.Info("server shutting down")
+		s.log.Info("server close")
 	}
 	if s.logger != nil {
 		s.logger.Close()
@@ -74,11 +74,11 @@ func (s *Server) Close() {
 
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
-	cmd := binary.LittleEndian.Uint16(amsPackage[16:18])
+	command := binary.LittleEndian.Uint16(amsPackage[16:18])
 	invoke := binary.LittleEndian.Uint32(amsPackage[28:32])
 	request := amsPackage[ams.HeaderSize:]
 
-	switch cmd {
+	switch command {
 
 	case ads.CmdReadDeviceInfo:
 		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
