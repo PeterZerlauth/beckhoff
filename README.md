@@ -40,7 +40,7 @@ cd ads-client
 
 go mod init ads-client
 go get github.com/PeterZerlauth/beckho
-```go
+```
 
 ## Example main
 ```go
