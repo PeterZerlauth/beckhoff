@@ -21,9 +21,9 @@ type Server struct {
 	logger *Logger
 
 	// ✅ custom hooks
-	OnRead      func(ig, io uint32, buf []byte) ads.ErrorCode
-	OnWrite     func(ig, io uint32, data []byte) ads.ErrorCode
-	OnReadWrite func(ig, io uint32, readBuf []byte, writeData []byte) ads.ErrorCode
+	OnRead      func(ig, io uint32, readData []byte) ads.ErrorCode
+	OnWrite     func(ig, io uint32, dataData []byte) ads.ErrorCode
+	OnReadWrite func(ig, io uint32, readData []byte, writeData []byte) ads.ErrorCode
 }
 
 /* ===================== CONSTRUCTOR ===================== */
@@ -102,36 +102,36 @@ func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 /* ===================== COMMANDS ===================== */
 
 func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error) {
-	ig := binary.LittleEndian.Uint32(req[0:4])
-	io := binary.LittleEndian.Uint32(req[4:8])
+	indexGroup := binary.LittleEndian.Uint32(req[0:4])
+	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	length := binary.LittleEndian.Uint32(req[8:12])
 
-	buf := make([]byte, length)
+	readData := make([]byte, length)
 
 	s.mu.RLock()
 	var err ads.ErrorCode
 	if s.OnRead != nil {
-		err = s.OnRead(ig, io, buf)
+		err = s.OnRead(indexGroup, indexOffset, readData)
 	} else {
 		s.log.Error("OnRead not implemented")
 		err = ads.InvalidIndexOffset
 	}
 	s.mu.RUnlock()
 
-	return buildReadResponse(p, invoke, err, buf), nil
+	return buildReadResponse(p, invoke, err, readData), nil
 }
 
 func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
-	ig := binary.LittleEndian.Uint32(req[0:4])
-	io := binary.LittleEndian.Uint32(req[4:8])
+	indexGroup := binary.LittleEndian.Uint32(req[0:4])
+	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	length := binary.LittleEndian.Uint32(req[8:12])
 
-	data := req[12 : 12+length]
+	writeData := req[12 : 12+length]
 
 	s.mu.Lock()
 	var err ads.ErrorCode
 	if s.OnWrite != nil {
-		err = s.OnWrite(ig, io, data)
+		err = s.OnWrite(indexGroup, indexOffset, writeData)
 	} else {
 		s.log.Error("OnWrite not implemented")
 		err = ads.InvalidIndexOffset
@@ -142,8 +142,8 @@ func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error
 }
 
 func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
-	ig := binary.LittleEndian.Uint32(req[0:4])
-	io := binary.LittleEndian.Uint32(req[4:8])
+	indexGroup := binary.LittleEndian.Uint32(req[0:4])
+	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	readLen := binary.LittleEndian.Uint32(req[8:12])
 	writeLen := binary.LittleEndian.Uint32(req[12:16])
 
@@ -152,19 +152,19 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	}
 
 	writeData := req[16 : 16+writeLen]
-	readBuf := make([]byte, readLen)
+	readData:= make([]byte, readLen)
 
 	s.mu.Lock()
 	var err ads.ErrorCode
 	if s.OnReadWrite != nil {
-		err = s.OnReadWrite(ig, io, readBuf, writeData)
+		err = s.OnReadWrite(indexGroup, indexOffset, readData, writeData)
 	} else {
 		s.log.Error("OnReadWrite not implemented")
 		err = ads.InvalidIndexOffset
 	}
 	s.mu.Unlock()
 
-	return buildReadWriteResponse(p, invoke, err, readBuf), nil
+	return buildReadWriteResponse(p, invoke, err, readData), nil
 }
 
 func (s *Server) Log() *slog.Logger {
