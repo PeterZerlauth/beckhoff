@@ -23,15 +23,12 @@ It provides a lightweight, in-memory ADS endpoint that can be used for testing, 
   * Terminal
   * File
 
----
-
 ## Open Points
 
 * ADS Symbol support
 * ADS router for standalone operation on linux
 * ADS client 
 
----
 
 ## Get started
 ```batch
