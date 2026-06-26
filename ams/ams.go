@@ -18,12 +18,12 @@ type Address struct {
 }
 
 // NetID to String
-func NetIdFromBytes(n []byte) NetId {
-    return NetId(n) 
+func (n *NetId) FromBytes(netId []byte) {
+    *n = NetId(netId)
 }
 
 // NetID to String
-func NetIdToString(n NetId) string {
+func (n *NetId) ToString() string {
     return fmt.Sprintf("%d.%d.%d.%d.%d.%d",
         n[0], n[1], n[2], n[3], n[4], n[5])
     }

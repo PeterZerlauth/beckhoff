@@ -30,7 +30,7 @@ func TestParseNetId_Valid(t *testing.T) {
 
 func TestParseNetId_Invalid(t *testing.T) {
     tests := []string{
-        "",                        // empty
+        "",                       // empty
         "1.2.3.4.5",              // too short
         "1.2.3.4.5.6.7",          // too long
         "1.2.3.4.5.a",            // non-numeric
@@ -60,7 +60,9 @@ func TestNetId_String(t *testing.T) {
 
     for _, test := range tests {
         t.Run(test.expected, func(t *testing.T) {
-            result := test.input.String()
+            result := test.input.ToString() // ✅ fixed
+            // or: result := test.input.String() if you named it String()
+
             if result != test.expected {
                 t.Errorf("expected %s, got %s", test.expected, result)
             }
