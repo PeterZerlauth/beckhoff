@@ -55,7 +55,7 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) NetID() string {
+func (s *Server) NetID() ams.NetId {
 	return s.conn.NetID()
 }
 

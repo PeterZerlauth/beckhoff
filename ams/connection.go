@@ -143,8 +143,8 @@ func (c *Connection) send(buf []byte) {
 	c.wmu.Unlock()
 }
 
-func (c *Connection) NetID() string {
-	return c.netid.String()
+func (c *Connection) NetID() NetId  {
+	return c.netid
 }
 
 func (c *Connection) Port() uint16 {

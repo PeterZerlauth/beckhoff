@@ -8,7 +8,6 @@ import (
 )
 
 /* Builders */
-
 func buildReadResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) []byte {
 	body := make([]byte, 8+len(data))
 	binary.LittleEndian.PutUint32(body[0:4], uint32(err))
@@ -77,7 +76,6 @@ func (s *Server) buildReadState(req []byte, invoke uint32) ([]byte, error) {
 }
 
 /* ===================== CORE AMS BUILDER ===================== */
-
 func buildAms(req []byte, cmd uint16, invoke uint32, payload []byte) []byte {
 	dataLen := uint32(len(payload))
 	total := ams.HeaderSize + dataLen
