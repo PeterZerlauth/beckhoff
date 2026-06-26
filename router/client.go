@@ -11,7 +11,7 @@ import (
 	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
-// ================= CLIENT =================
+// client 
 type Client struct {
 	conn   net.Conn
 	router *Router
@@ -65,7 +65,7 @@ func (c *Client) readLoop() {
 	}
 }
 
-// REGISTER HANDSHAKE
+// handshake
 func (c *Client) handleRegister() error {
 	var req [8]byte
 
