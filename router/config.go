@@ -5,8 +5,7 @@ import (
 	"os"
 )
 
-// ================= CONFIG =================
-
+// Coinfiguration 
 type Config struct {
 	AmsRouter struct {
 		Name              string

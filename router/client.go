@@ -102,7 +102,7 @@ func (c *Client) handleRegister() error {
 }
 
 func (c *Client) handlePacket(header, payload []byte) {
-	dest := parseNetId(header[12:18])
+	dest := ams.NetIdFromBytes(header[12:18])
 	full := append(header, payload...)
 
 	if err := c.router.Forward(dest, full); err != nil {

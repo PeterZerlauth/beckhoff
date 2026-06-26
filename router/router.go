@@ -13,7 +13,7 @@ import (
 )
 
 
-// ================= ROUTER =================
+// Router
 type Router struct {
 	mu sync.RWMutex
 
@@ -25,6 +25,7 @@ type Router struct {
 	listener net.Listener
 }
 
+// Create new ads router
 func NewRouter() *Router {
 	return &Router{
 		routes:  make(map[ams.NetId]*Client),
@@ -32,8 +33,9 @@ func NewRouter() *Router {
 	}
 }
 
+// Set routeres
 func (r *Router) SetRoutes(cfg *Config) error {
-	netid, err := parseNetIdString(cfg.AmsRouter.NetId)
+	netid, err := ams.ParseNetId(cfg.AmsRouter.NetId)
 	if err != nil {
 		return err
 	}
@@ -44,6 +46,7 @@ func (r *Router) SetRoutes(cfg *Config) error {
 	return nil
 }
 
+// Start router 
 func (r *Router) Start() error {
 	// Load config
 	cfg, err := LoadConfig("settings.json")
@@ -52,7 +55,7 @@ func (r *Router) Start() error {
 	}
 
 	// Set local NetID only
-	netid, err := parseNetIdString(cfg.AmsRouter.NetId)
+	netid, err := ams.ParseNetId(cfg.AmsRouter.NetId)
 	if err != nil {
 		return fmt.Errorf("failed to init router: %w", err)
 	}
@@ -87,6 +90,7 @@ func (r *Router) Start() error {
 	return nil
 }
 
+// Acccept clients
 func (r *Router) acceptLoop() {
 	for {
 		conn, err := r.listener.Accept()
@@ -105,17 +109,20 @@ func (r *Router) acceptLoop() {
 	}
 }
 
+// Register a client
 func (r *Router) Register(id ams.NetId, c *Client) {
 	r.routes[id] = c
 	log.Printf("Ads route: %v %v -> %s\n", r.localNetId, id, c.conn.RemoteAddr())
 }
 
+// Unregister a client
 func (r *Router) Unregister(id ams.NetId, c *Client) {
 	if existing, ok := r.routes[id]; ok && existing == c {
 		delete(r.routes, id)
 	}
 }
 
+// Forward data
 func (r *Router) Forward(dest ams.NetId, data []byte) error {
 	client, ok := r.routes[dest]
 
@@ -136,6 +143,7 @@ func (r *Router) Forward(dest ams.NetId, data []byte) error {
 	}
 }
 
+// Remove a client
 func (r *Router) RemoveClient(c *Client) {
 
 	delete(r.clients, c)
@@ -147,8 +155,7 @@ func (r *Router) RemoveClient(c *Client) {
 	}
 }
 
-// ================= REMOTE CONNECT =================
-
+// remote connection
 func (r *Router) connectRemote(rc RemoteConnection) {
 	if rc.Type != "TCP_IP" {
 		return
@@ -164,7 +171,7 @@ func (r *Router) connectRemote(rc RemoteConnection) {
 
 	client := NewClient(conn, r)
 
-	netid, err := parseNetIdString(rc.NetId)
+	netid, err := ams.ParseNetId(rc.NetId)
 	if err != nil {
 		log.Println("Invalid NetID:", rc.NetId)
 		return
@@ -177,27 +184,4 @@ func (r *Router) connectRemote(rc RemoteConnection) {
 	log.Println("Connected remote:", rc.Name, addr)
 
 	go client.RunWithoutRegister() // important
-}
-
-// ================= HELPERS =================
-
-func parseNetId(b []byte) ams.NetId {
-	var id ams.NetId
-	copy(id[:], b)
-	return id
-}
-
-func parseNetIdString(s string) (ams.NetId, error) {
-	var id ams.NetId
-	var b [6]byte
-
-	n, err := fmt.Sscanf(s, "%d.%d.%d.%d.%d.%d",
-		&b[0], &b[1], &b[2], &b[3], &b[4], &b[5])
-
-	if err != nil || n != 6 {
-		return id, fmt.Errorf("invalid NetID: %s", s)
-	}
-
-	copy(id[:], b[:])
-	return id, nil
 }

@@ -18,10 +18,15 @@ type Address struct {
 }
 
 // NetID to String
-func (n NetId) String() string {
+func NetIdFromBytes(n []byte) NetId {
+    return NetId(n) 
+}
+
+// NetID to String
+func NetIdToString(n NetId) string {
     return fmt.Sprintf("%d.%d.%d.%d.%d.%d",
         n[0], n[1], n[2], n[3], n[4], n[5])
-}
+    }
 
 // Parse NetId
 func ParseNetId(s string) (NetId, error) {
