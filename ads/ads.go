@@ -54,3 +54,20 @@ const (
 	STATE_RECONFIG     ADSState = 16 // system should restart in config mode
 	STATE_MAXSTATES    ADSState = 17
 )
+
+// IndexGroups
+const (
+	IdxGetSymHandleByName        = 0x0000F003
+	IdxReserved                  = 0x0000F004
+	IdxReadWriteSymValueByHandle = 0x0000F005
+	IdxReleaseSymHandle          = 0x0000F006
+	IdxReadIWriteI               = 0x0000F020
+	IdxReadIXWriteIX             = 0x0000F021
+	IdxADSIGRP_IOIMAGE_RISIZE    = 0x0000F025
+	IdxReadQWriteQ               = 0x0000F030
+	IdxReadQXWriteQX             = 0x0000F031
+	IdxADSIGRP_IOIMAGE_ROSIZE    = 0x0000F035
+	IdxADSIGRP_SUMUP_READ        = 0x0000F080
+	IdxADSIGRP_SUMUP_WRITE       = 0x0000F081
+	IdxADSIGRP_SUMUP_READWRITE   = 0x0000F082
+)

@@ -13,7 +13,7 @@ import (
 /* Beckhoff ads server */
 
 type Server struct {
-	conn *ams.Connection
+	conn *Connection
 	name string
 
 	mu sync.RWMutex
@@ -37,7 +37,7 @@ func NewServer(port uint16, name string) *Server {
 		logger: logger,
 	}
 
-	s.conn = ams.NewConnection(port, s, s.log)
+	s.conn = NewConnection(port, s, s.log)
 
 	return s
 }
