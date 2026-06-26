@@ -28,7 +28,6 @@ type Server struct {
 }
 
 /* Create new server */
-
 func NewServer(port uint16, name string) *Server {
 	logger := logger.NewLogger("logger.log", 5)
 
@@ -75,9 +74,12 @@ func (s *Server) Close() {
 }
 
 /* Handle ads Packets */
-
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
+	if (len(amsPackage) < 32) {
+		s.log.Error("amsPackage to small", "len", len(amsPackage))
+		return nil, nil
+	}
 	command := binary.LittleEndian.Uint16(amsPackage[16:18])
 	invoke := binary.LittleEndian.Uint32(amsPackage[28:32])
 	request := amsPackage[ams.HeaderSize:]
@@ -104,7 +106,6 @@ func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 }
 
 /* Beckhoff ads commands */
-
 func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error) {
 	indexGroup := binary.LittleEndian.Uint32(req[0:4])
 	indexOffset := binary.LittleEndian.Uint32(req[4:8])
