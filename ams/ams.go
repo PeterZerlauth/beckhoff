@@ -23,7 +23,7 @@ func (n *NetId) FromBytes(netId []byte) {
 }
 
 // NetID to String
-func (n *NetId) ToString() string {
+func (n NetId) String() string {
     return fmt.Sprintf("%d.%d.%d.%d.%d.%d",
         n[0], n[1], n[2], n[3], n[4], n[5])
     }
