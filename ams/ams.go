@@ -6,6 +6,7 @@ import (
     "strings"
 )
 const (
+	TcpHeaderSize = 6
     HeaderSize = 32
 )
 
@@ -16,13 +17,13 @@ type Address struct {
     Port  uint16
 }
 
-// ✅ String method (idiomatic Go)
+// NetID to String
 func (n NetId) String() string {
     return fmt.Sprintf("%d.%d.%d.%d.%d.%d",
         n[0], n[1], n[2], n[3], n[4], n[5])
 }
 
-// ✅ Parse string → NetId
+// Parse NetId
 func ParseNetId(s string) (NetId, error) {
     var n NetId
 

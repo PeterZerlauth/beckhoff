@@ -7,7 +7,7 @@ import (
 	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
-/* ===================== PUBLIC BUILDERS ===================== */
+/* Builders */
 
 func buildReadResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) []byte {
 	body := make([]byte, 8+len(data))
@@ -82,7 +82,7 @@ func buildAms(req []byte, cmd uint16, invoke uint32, payload []byte) []byte {
 	dataLen := uint32(len(payload))
 	total := ams.HeaderSize + dataLen
 
-	buffer := make([]byte, 0, ads.TcpHeaderSize+total)
+	buffer := make([]byte, 0, ams.TcpHeaderSize+total)
 
 	// TCP header
 	buffer = binary.LittleEndian.AppendUint16(buffer, 0)

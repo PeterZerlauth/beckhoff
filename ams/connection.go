@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/PeterZerlauth/beckhoff/ads"
 )
 
 type Handler interface {
@@ -115,7 +114,7 @@ func (c *Connection) worker() {
 }
 
 func (c *Connection) readPacket() ([]byte, error) {
-	var tcp [ads.TcpHeaderSize]byte
+	var tcp [TcpHeaderSize]byte
 
 	if _, err := io.ReadFull(c.conn, tcp[:]); err != nil {
 		c.log.Error("Read failed", "error", err)

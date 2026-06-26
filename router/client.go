@@ -7,13 +7,15 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
 // ================= CLIENT =================
 type Client struct {
 	conn   net.Conn
 	router *Router
-	netId  AmsNetId
+	netId  ams.NetId
 	port   uint16
 	mu     sync.Mutex
 }
@@ -114,7 +116,7 @@ func (c *Client) Send(data []byte) error {
 }
 
 func (c *Client) shutdown() {
-	if c.netId != (AmsNetId{}) {
+	if c.netId != (ams.NetId{}) {
 		c.router.Unregister(c.netId, c)
 	}
 	c.router.RemoveClient(c)

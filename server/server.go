@@ -10,7 +10,7 @@ import (
 	"github.com/PeterZerlauth/beckhoff/logger"
 )
 
-/* ===================== SERVER ===================== */
+/* Beckhoff ads server */
 
 type Server struct {
 	conn *ams.Connection
@@ -27,7 +27,7 @@ type Server struct {
 	OnReadWrite func(indexGroup, indexOffset uint32, readData []byte, writeData []byte) ads.ErrorCode
 }
 
-/* ===================== CONSTRUCTOR ===================== */
+/* Create new server */
 
 func NewServer(port uint16, name string) *Server {
 	logger := logger.NewLogger("logger.log", 5)
@@ -43,7 +43,7 @@ func NewServer(port uint16, name string) *Server {
 	return s
 }
 
-/* ===================== LIFECYCLE ===================== */
+/* Start server */
 
 func (s *Server) Start() error {
 	if err := s.conn.Start(); err != nil {
@@ -59,7 +59,10 @@ func (s *Server) NetID() string {
 	return s.conn.NetID()
 }
 
+
+/* Close server */
 func (s *Server) Close() {
+
 	if s.conn != nil {
 		s.conn.Close()
 	}
@@ -71,7 +74,7 @@ func (s *Server) Close() {
 	}
 }
 
-/* ===================== HANDLER ===================== */
+/* Handle ads Packets */
 
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
@@ -100,7 +103,7 @@ func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 	return nil, nil
 }
 
-/* ===================== COMMANDS ===================== */
+/* Beckhoff ads commands */
 
 func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error) {
 	indexGroup := binary.LittleEndian.Uint32(req[0:4])

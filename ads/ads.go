@@ -1,38 +1,35 @@
 package ads
 
 const (
-	TcpHeaderSize = 6
+	CmdReadDeviceInfo 	= 1
+	CmdRead           	= 2
+	CmdWrite          	= 3
+	CmdReadState      	= 4
+	CmdReadWrite      	= 9
 
-	CmdReadDeviceInfo = 1
-	CmdRead           = 2
-	CmdWrite          = 3
-	CmdReadState      = 4
-	CmdReadWrite      = 9
-
-	flagResponse = 0x0001
-	workers      = 8
+	flagResponse 		= 0x0001
 )
 
 type ErrorCode uint32
 
 const (
-	NoError ErrorCode = 0x0000
+	NoError 			ErrorCode = 0x0000
 
 	// General access / parameter errors
-	AccessDenied     ErrorCode = 0x0706
-	InvalidParameter ErrorCode = 0x0705
-	InvalidParamSize ErrorCode = 0x070C
+	AccessDenied     		ErrorCode = 0x0706
+	InvalidParameter 		ErrorCode = 0x0705
+	InvalidParamSize 		ErrorCode = 0x070C
 
 	// Index / addressing errors
-	InvalidIndexGroup  ErrorCode = 0x0702
-	InvalidIndexOffset ErrorCode = 0x0703
+	InvalidIndexGroup  		ErrorCode = 0x0702
+	InvalidIndexOffset 		ErrorCode = 0x0703
 
 	// Symbol errors
-	SymbolNotFound ErrorCode = 0x0710
+	SymbolNotFound 			ErrorCode = 0x0710
 
 	// Optional useful ones
-	DeviceNotReady ErrorCode = 0x0707
-	DeviceBusy     ErrorCode = 0x0708
+	DeviceNotReady 			ErrorCode = 0x0707
+	DeviceBusy     			ErrorCode = 0x0708
 )
 
 type ADSState uint16

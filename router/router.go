@@ -8,17 +8,18 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
-type AmsNetId [6]byte
 
 // ================= ROUTER =================
 type Router struct {
 	mu sync.RWMutex
 
-	localNetId AmsNetId
+	localNetId ams.NetId
 
-	routes  map[AmsNetId]*Client
+	routes  map[ams.NetId]*Client
 	clients map[*Client]struct{}
 
 	listener net.Listener
@@ -26,7 +27,7 @@ type Router struct {
 
 func NewRouter() *Router {
 	return &Router{
-		routes:  make(map[AmsNetId]*Client),
+		routes:  make(map[ams.NetId]*Client),
 		clients: make(map[*Client]struct{}),
 	}
 }
@@ -104,18 +105,18 @@ func (r *Router) acceptLoop() {
 	}
 }
 
-func (r *Router) Register(id AmsNetId, c *Client) {
+func (r *Router) Register(id ams.NetId, c *Client) {
 	r.routes[id] = c
 	log.Printf("Ads route: %v %v -> %s\n", r.localNetId, id, c.conn.RemoteAddr())
 }
 
-func (r *Router) Unregister(id AmsNetId, c *Client) {
+func (r *Router) Unregister(id ams.NetId, c *Client) {
 	if existing, ok := r.routes[id]; ok && existing == c {
 		delete(r.routes, id)
 	}
 }
 
-func (r *Router) Forward(dest AmsNetId, data []byte) error {
+func (r *Router) Forward(dest ams.NetId, data []byte) error {
 	client, ok := r.routes[dest]
 
 	if !ok {
@@ -180,14 +181,14 @@ func (r *Router) connectRemote(rc RemoteConnection) {
 
 // ================= HELPERS =================
 
-func parseNetId(b []byte) AmsNetId {
-	var id AmsNetId
+func parseNetId(b []byte) ams.NetId {
+	var id ams.NetId
 	copy(id[:], b)
 	return id
 }
 
-func parseNetIdString(s string) (AmsNetId, error) {
-	var id AmsNetId
+func parseNetIdString(s string) (ams.NetId, error) {
+	var id ams.NetId
 	var b [6]byte
 
 	n, err := fmt.Sscanf(s, "%d.%d.%d.%d.%d.%d",
