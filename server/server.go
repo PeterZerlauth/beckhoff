@@ -41,7 +41,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	s.log.Info("Ads server started", "netid", s.conn.NetID(), "port", s.conn.Port())
+	s.log.Info("Ads server started", "netid", s.conn.NetId(), "port", s.conn.Port())
 	return nil
 }
 

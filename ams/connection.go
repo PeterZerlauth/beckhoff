@@ -209,7 +209,7 @@ func (c *Connection) send(buf []byte) {
 	c.wmu.Unlock()
 }
 
-func (c *Connection) NetID() NetId {
+func (c *Connection) NetId() NetId {
 	return c.netid
 }
 
