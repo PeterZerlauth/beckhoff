@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/binary"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/PeterZerlauth/beckhoff/ads"
 	"github.com/PeterZerlauth/beckhoff/router"
@@ -35,5 +38,11 @@ func main() {
 		log.Fatalf("Failed to start: %v", err)
 	}
 
-	select {} // keep running
+	// wait for CTRL+C
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	<-ch
+
+	srv.Close()
+
 }

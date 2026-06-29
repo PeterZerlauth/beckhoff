@@ -10,8 +10,6 @@ import (
 	"github.com/PeterZerlauth/beckhoff/logger"
 )
 
-/* Beckhoff ads server */
-
 type Server struct {
 	conn *ams.Connection
 	name string
@@ -20,15 +18,13 @@ type Server struct {
 
 	log *slog.Logger
 
-	// ads commands
-	OnRead      func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode
-	OnWrite     func(indexGroup, indexOffset uint32, dataData []byte) ads.ErrorCode
-	OnReadWrite func(indexGroup, indexOffset uint32, readData []byte, writeData []byte) ads.ErrorCode
+	OnRead      func(uint32, uint32, []byte) ads.ErrorCode
+	OnWrite     func(uint32, uint32, []byte) ads.ErrorCode
+	OnReadWrite func(uint32, uint32, []byte, []byte) ads.ErrorCode
 }
 
-/* Create new server */
 func NewServer(port uint16, name string) *Server {
-	log := logger.GetLogger("", 7).Log() // ✅ directly use slog
+	log := logger.GetLogger("", 7).Log()
 
 	s := &Server{
 		name: name,
@@ -36,118 +32,116 @@ func NewServer(port uint16, name string) *Server {
 	}
 
 	s.conn = ams.NewConnection(port, s, s.log)
-
 	return s
 }
 
-/* Start server */
-
 func (s *Server) Start() error {
 	if err := s.conn.Start(); err != nil {
-		s.log.Error("server start failed", "error", err)
+		s.log.Error("Ads server start failed", "error", err)
 		return err
 	}
 
-	s.log.Info("server started", "netid", s.conn.NetID(), "port", s.conn.Port())
+	s.log.Info("Ads server started", "netid", s.conn.NetID(), "port", s.conn.Port())
 	return nil
 }
 
-func (s *Server) NetID() ams.NetId {
-	return s.conn.NetID()
-}
-
-/* Close server */
 func (s *Server) Close() {
-
+	s.log.Info("Ads server close")
 	if s.conn != nil {
 		s.conn.Close()
 	}
-	if s.log != nil {
-		s.log.Info("server close")
-	}
+	logger.GetLogger("", 7).Close()
 }
 
-/* Handle ads Packets */
+/* ===================== PACKET HANDLER ===================== */
+
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
-	if len(amsPackage) < 32 {
-		s.log.Error("amsPackage to small", "len", len(amsPackage))
+	if len(amsPackage) < ams.HeaderSize {
+		s.log.Error("AMS package too small", "len", len(amsPackage))
 		return nil, nil
 	}
-	command := binary.LittleEndian.Uint16(amsPackage[16:18])
-	invoke := binary.LittleEndian.Uint32(amsPackage[28:32])
-	request := amsPackage[ams.HeaderSize:]
 
-	switch command {
-
-	case ads.CmdReadDeviceInfo:
-		return s.buildReadDeviceInfo(amsPackage, invoke, s.name, 1, 2, 3), nil
-
-	case ads.CmdReadState:
-		return s.buildReadState(amsPackage, invoke)
-
-	case ads.CmdRead:
-		return s.handleRead(amsPackage, request, invoke)
-
-	case ads.CmdWrite:
-		return s.handleWrite(amsPackage, request, invoke)
-
-	case ads.CmdReadWrite:
-		return s.handleReadWrite(amsPackage, request, invoke)
+	header, err := ams.Decode(amsPackage)
+	if err != nil {
+		s.log.Error("Ams Packet decoding failed", "error", err)
+		return nil, err
 	}
 
+	req := amsPackage[ams.HeaderSize:]
+
+	switch header.CommandID {
+
+	case ads.CmdReadDeviceInfo:
+		return s.buildReadDeviceInfo(header, s.name, 1, 2, 3), nil
+
+	case ads.CmdReadState:
+		return s.buildReadState(header), nil
+
+	case ads.CmdRead:
+		return s.handleRead(header, req), nil
+
+	case ads.CmdWrite:
+		return s.handleWrite(header, req), nil
+
+	case ads.CmdReadWrite:
+		return s.handleReadWrite(header, req), nil
+	}
+
+	s.log.Warn("unknown command", "cmd", header.CommandID)
 	return nil, nil
 }
 
-/* Beckhoff ads commands */
-func (s *Server) handleRead(p []byte, req []byte, invoke uint32) ([]byte, error) {
+/* ===================== COMMAND HANDLERS ===================== */
+
+func (s *Server) handleRead(header *ams.Header, req []byte) []byte {
 	indexGroup := binary.LittleEndian.Uint32(req[0:4])
 	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	length := binary.LittleEndian.Uint32(req[8:12])
 
-	readData := make([]byte, length)
+	data := make([]byte, length)
 
 	s.mu.RLock()
 	var err ads.ErrorCode
 	if s.OnRead != nil {
-		err = s.OnRead(indexGroup, indexOffset, readData)
+		err = s.OnRead(indexGroup, indexOffset, data)
 	} else {
-		s.log.Error("OnRead not implemented")
 		err = ads.InvalidIndexOffset
+		s.log.Error("OnRead not implemented")
 	}
 	s.mu.RUnlock()
 
-	return buildReadResponse(p, invoke, err, readData), nil
+	return buildReadResponse(header, err, data)
 }
 
-func (s *Server) handleWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
+func (s *Server) handleWrite(header *ams.Header, req []byte) []byte {
 	indexGroup := binary.LittleEndian.Uint32(req[0:4])
 	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	length := binary.LittleEndian.Uint32(req[8:12])
 
-	writeData := req[12 : 12+length]
+	data := req[12 : 12+length]
 
 	s.mu.Lock()
 	var err ads.ErrorCode
 	if s.OnWrite != nil {
-		err = s.OnWrite(indexGroup, indexOffset, writeData)
+		err = s.OnWrite(indexGroup, indexOffset, data)
 	} else {
-		s.log.Error("OnWrite not implemented")
 		err = ads.InvalidIndexOffset
+		s.log.Error("OnWrite not implemented")
 	}
 	s.mu.Unlock()
 
-	return buildWriteResponse(p, invoke, err), nil
+	return buildWriteResponse(header, err)
 }
 
-func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, error) {
+func (s *Server) handleReadWrite(header *ams.Header, req []byte) []byte {
 	indexGroup := binary.LittleEndian.Uint32(req[0:4])
 	indexOffset := binary.LittleEndian.Uint32(req[4:8])
 	readLen := binary.LittleEndian.Uint32(req[8:12])
 	writeLen := binary.LittleEndian.Uint32(req[12:16])
 
 	if int(16+writeLen) > len(req) {
-		return buildReadWriteResponse(p, invoke, ads.InvalidParameter, nil), nil
+		return buildReadWriteResponse(header, ads.InvalidParameter, nil)
 	}
 
 	writeData := req[16 : 16+writeLen]
@@ -158,14 +152,10 @@ func (s *Server) handleReadWrite(p []byte, req []byte, invoke uint32) ([]byte, e
 	if s.OnReadWrite != nil {
 		err = s.OnReadWrite(indexGroup, indexOffset, readData, writeData)
 	} else {
-		s.log.Error("OnReadWrite not implemented")
 		err = ads.InvalidIndexOffset
+		s.log.Error("OnReadWrite not implemented")
 	}
 	s.mu.Unlock()
 
-	return buildReadWriteResponse(p, invoke, err, readData), nil
-}
-
-func (s *Server) Log() *slog.Logger {
-	return s.log
+	return buildReadWriteResponse(header, err, readData)
 }

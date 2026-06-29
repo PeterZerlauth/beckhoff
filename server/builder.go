@@ -7,112 +7,94 @@ import (
 	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
-/* Builders */
-func buildReadResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) []byte {
+/* ===================== RESPONSE BUILDERS ===================== */
+
+func buildReadResponse(req *ams.Header, err ads.ErrorCode, data []byte) []byte {
 	body := make([]byte, 8+len(data))
+
 	binary.LittleEndian.PutUint32(body[0:4], uint32(err))
 	binary.LittleEndian.PutUint32(body[4:8], uint32(len(data)))
 	copy(body[8:], data)
 
-	return buildAms(req, ads.CmdRead, invoke, body)
+	return buildAms(req, ads.CmdRead, body)
 }
 
-func buildWriteResponse(req []byte, invoke uint32, err ads.ErrorCode) []byte {
+func buildWriteResponse(req *ams.Header, err ads.ErrorCode) []byte {
 	var body [4]byte
 	binary.LittleEndian.PutUint32(body[:], uint32(err))
 
-	return buildAms(req, ads.CmdWrite, invoke, body[:])
+	return buildAms(req, ads.CmdWrite, body[:])
 }
 
-func buildReadWriteResponse(req []byte, invoke uint32, err ads.ErrorCode, data []byte) []byte {
+func buildReadWriteResponse(req *ams.Header, err ads.ErrorCode, data []byte) []byte {
 	body := make([]byte, 8+len(data))
+
 	binary.LittleEndian.PutUint32(body[0:4], uint32(err))
 	binary.LittleEndian.PutUint32(body[4:8], uint32(len(data)))
 	copy(body[8:], data)
 
-	return buildAms(req, ads.CmdReadWrite, invoke, body)
+	return buildAms(req, ads.CmdReadWrite, body)
 }
 
-func (s *Server) buildReadDeviceInfo(req []byte, invoke uint32, name string, major byte, minor byte, build uint16) []byte {
+/* ===================== DEVICE INFO ===================== */
+
+func (s *Server) buildReadDeviceInfo(h *ams.Header, name string, major, minor byte, build uint16) []byte {
 
 	var body [24]byte
 
-	// Result
 	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
-
-	// Version (major, minor, build)
 	body[4] = major
 	body[5] = minor
-
-	//	binary.LittleEndian.PutUint16(body[6:8], build)
 	binary.LittleEndian.PutUint16(body[6:8], build)
 
-	// Name (max 16 bytes)
-	nameBytes := []byte(name)
-	if len(nameBytes) > 16 {
-		nameBytes = nameBytes[:16]
+	n := []byte(name)
+	if len(n) > 16 {
+		n = n[:16]
 	}
-	copy(body[8:24], nameBytes)
+	copy(body[8:], n)
 
-	s.log.Debug("ReadDeviceInfo", "name", nameBytes, "major", major, "minor", minor, "build", build)
-
-	return buildAms(req, ads.CmdReadDeviceInfo, invoke, body[:])
+	return buildAms(h, ads.CmdReadDeviceInfo, body[:])
 }
-func (s *Server) buildReadState(req []byte, invoke uint32) ([]byte, error) {
+
+func (s *Server) buildReadState(h *ams.Header) []byte {
 	var body [8]byte
 
-	// Result
 	binary.LittleEndian.PutUint32(body[0:4], uint32(ads.NoError))
-
-	// ADS State (RUN)
 	binary.LittleEndian.PutUint16(body[4:6], uint16(ads.STATE_RUN))
-
-	// Device State
 	binary.LittleEndian.PutUint16(body[6:8], 0)
 
-	s.log.Debug("ReadState", "ADS State", ads.STATE_RUN, "Device State", 0)
-
-	return buildAms(req, ads.CmdReadState, invoke, body[:]), nil
+	return buildAms(h, ads.CmdReadState, body[:])
 }
 
 /* ===================== CORE AMS BUILDER ===================== */
-func buildAms(req []byte, cmd uint16, invoke uint32, payload []byte) []byte {
-	dataLen := uint32(len(payload))
-	total := ams.HeaderSize + dataLen
 
-	buffer := make([]byte, 0, ams.TcpHeaderSize+total)
+func buildAms(req *ams.Header, cmd uint16, payload []byte) []byte {
 
-	// TCP header
-	buffer = binary.LittleEndian.AppendUint16(buffer, 0)
-	buffer = binary.LittleEndian.AppendUint32(buffer, total)
+	resp := &ams.Header{
+		TargetNetId: req.SourceNetId,
+		TargetPort:  req.SourcePort,
 
-	// AMS header (swap source/target from request)
+		SourceNetId: req.TargetNetId,
+		SourcePort:  req.TargetPort,
 
-	// Target = Source from request
-	buffer = append(buffer, req[8:14]...)
-	buffer = binary.LittleEndian.AppendUint16(buffer, binary.LittleEndian.Uint16(req[14:16]))
+		CommandID:  cmd,
+		StateFlags: 0x0001,
 
-	// Source = Target from request
-	buffer = append(buffer, req[0:6]...)
-	buffer = binary.LittleEndian.AppendUint16(buffer, binary.LittleEndian.Uint16(req[6:8]))
+		DataLength: uint32(len(payload)),
+		ErrorCode:  0,
+		InvokeID:   req.InvokeID,
+	}
 
-	// Command
-	buffer = binary.LittleEndian.AppendUint16(buffer, cmd)
+	headerBytes, _ := resp.Encode()
 
-	// State flags (response)
-	buffer = binary.LittleEndian.AppendUint16(buffer, 0x0005)
+	// TCP header (6 bytes)
+	out := make([]byte, 0, ams.TcpHeaderSize+len(headerBytes)+len(payload))
 
-	// Data length
-	buffer = binary.LittleEndian.AppendUint32(buffer, dataLen)
+	out = binary.LittleEndian.AppendUint16(out, 0)
+	out = binary.LittleEndian.AppendUint32(out, uint32(len(headerBytes)+len(payload)))
 
-	// Error code
-	buffer = binary.LittleEndian.AppendUint32(buffer, 0)
+	out = append(out, headerBytes...)
+	out = append(out, payload...)
 
-	// Invoke ID
-	buffer = binary.LittleEndian.AppendUint32(buffer, invoke)
-
-	// Payload
-	buffer = append(buffer, payload...)
-
-	return buffer
+	return out
 }

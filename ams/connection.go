@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net"
 	"sync"
-
 )
 
 type Handler interface {
@@ -86,8 +85,37 @@ func (c *Connection) register() error {
 	return nil
 }
 
+func (c *Connection) unregister() error {
+
+	var req [8]byte
+
+	req[0] = 0 // reserved
+	req[1] = 0 // reserved
+	req[2] = 3 // ✅ command = ClosePort
+	req[3] = 0
+
+	// Port to close
+	binary.LittleEndian.PutUint16(req[6:], c.port)
+
+	// Send request
+	if _, err := c.conn.Write(req[:]); err != nil {
+		c.log.Error("Unregister write failed", "error", err)
+		return err
+	}
+
+	// Read response (same size as register response)
+	var res [8]byte
+	if _, err := io.ReadFull(c.conn, res[:]); err != nil {
+		c.log.Error("Unregister read failed", "error", err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *Connection) Close() {
 	if c.conn != nil {
+		c.unregister()
 		_ = c.conn.Close()
 	}
 }
@@ -143,7 +171,7 @@ func (c *Connection) send(buf []byte) {
 	c.wmu.Unlock()
 }
 
-func (c *Connection) NetID() NetId  {
+func (c *Connection) NetID() NetId {
 	return c.netid
 }
 
