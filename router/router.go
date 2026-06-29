@@ -3,15 +3,15 @@ package router
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/PeterZerlauth/beckhoff/ams"
+	"github.com/PeterZerlauth/beckhoff/logger"
 )
-
 
 // Router
 type Router struct {
@@ -23,6 +23,7 @@ type Router struct {
 	clients map[*Client]struct{}
 
 	listener net.Listener
+	log      *slog.Logger
 }
 
 // Create new ads router
@@ -30,10 +31,11 @@ func NewRouter() *Router {
 	return &Router{
 		routes:  make(map[ams.NetId]*Client),
 		clients: make(map[*Client]struct{}),
+		log:     logger.GetLogger("", 7).Log(), // ✅ singleton logger
 	}
 }
 
-// Set routeres
+// Set routes
 func (r *Router) SetRoutes(cfg *Config) error {
 	netid, err := ams.ParseNetId(cfg.AmsRouter.NetId)
 	if err != nil {
@@ -41,46 +43,40 @@ func (r *Router) SetRoutes(cfg *Config) error {
 	}
 
 	r.localNetId = netid
-	log.Println("Local NetID:", netid)
+	r.log.Info("Local NetID", "netid", netid)
 
 	return nil
 }
 
-// Start router 
+// Start router
 func (r *Router) Start() error {
-	// Load config
 	cfg, err := LoadConfig("settings.json")
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Set local NetID only
 	netid, err := ams.ParseNetId(cfg.AmsRouter.NetId)
 	if err != nil {
 		return fmt.Errorf("failed to init router: %w", err)
 	}
 
 	r.localNetId = netid
-	log.Println("Local NetID:", netid)
+	r.log.Info("Local NetID", "netid", netid)
 
-	// ADS Router port
 	address := "127.0.0.1:48898"
 
-	// Start TCP listener
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		if errors.Is(err, syscall.Errno(10013)) {
-			log.Println("ADS Router disabled: port 48898 cannot be bound")
+			r.log.Warn("ADS Router disabled: port bind failed")
 			return nil
 		}
 		return fmt.Errorf("failed to start ADS router: %w", err)
 	}
 
 	r.listener = ln
+	r.log.Info("ADS Router started", "address", address)
 
-	log.Println("ADS Router started")
-
-	// Connect remotes only after listener is running
 	for _, rc := range cfg.AmsRouter.RemoteConnections {
 		go r.connectRemote(rc)
 	}
@@ -90,20 +86,22 @@ func (r *Router) Start() error {
 	return nil
 }
 
-// Acccept clients
+// Accept clients
 func (r *Router) acceptLoop() {
 	for {
 		conn, err := r.listener.Accept()
 		if err != nil {
-			log.Println("Accept error:", err)
+			r.log.Error("Accept error", "error", err)
 			continue
 		}
 
 		client := NewClient(conn, r)
 
+		r.mu.Lock()
 		r.clients[client] = struct{}{}
+		r.mu.Unlock()
 
-		log.Println("New connection:", conn.RemoteAddr())
+		r.log.Info("New connection", "addr", conn.RemoteAddr())
 
 		go client.Run()
 	}
@@ -111,12 +109,22 @@ func (r *Router) acceptLoop() {
 
 // Register a client
 func (r *Router) Register(id ams.NetId, c *Client) {
+	r.mu.Lock()
 	r.routes[id] = c
-	log.Printf("Ads route: %v %v -> %s\n", r.localNetId, id, c.conn.RemoteAddr())
+	r.mu.Unlock()
+
+	r.log.Info("Route registered",
+		"local", r.localNetId,
+		"remote", id,
+		"addr", c.conn.RemoteAddr(),
+	)
 }
 
 // Unregister a client
 func (r *Router) Unregister(id ams.NetId, c *Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if existing, ok := r.routes[id]; ok && existing == c {
 		delete(r.routes, id)
 	}
@@ -124,7 +132,9 @@ func (r *Router) Unregister(id ams.NetId, c *Client) {
 
 // Forward data
 func (r *Router) Forward(dest ams.NetId, data []byte) error {
+	r.mu.RLock()
 	client, ok := r.routes[dest]
+	r.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("destination not found: %v", dest)
@@ -145,6 +155,8 @@ func (r *Router) Forward(dest ams.NetId, data []byte) error {
 
 // Remove a client
 func (r *Router) RemoveClient(c *Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	delete(r.clients, c)
 
@@ -155,7 +167,7 @@ func (r *Router) RemoveClient(c *Client) {
 	}
 }
 
-// remote connection
+// Remote connection
 func (r *Router) connectRemote(rc RemoteConnection) {
 	if rc.Type != "TCP_IP" {
 		return
@@ -165,7 +177,11 @@ func (r *Router) connectRemote(rc RemoteConnection) {
 
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		log.Println("Invalid route:", rc.Name, rc.NetId, rc.Address)
+		r.log.Warn("Invalid route",
+			"name", rc.Name,
+			"netid", rc.NetId,
+			"address", rc.Address,
+		)
 		return
 	}
 
@@ -173,15 +189,21 @@ func (r *Router) connectRemote(rc RemoteConnection) {
 
 	netid, err := ams.ParseNetId(rc.NetId)
 	if err != nil {
-		log.Println("Invalid NetID:", rc.NetId)
+		r.log.Warn("Invalid NetID", "netid", rc.NetId)
 		return
 	}
 
 	client.netId = netid
 
+	r.mu.Lock()
 	r.clients[client] = struct{}{}
 	r.routes[netid] = client
-	log.Println("Connected remote:", rc.Name, addr)
+	r.mu.Unlock()
 
-	go client.RunWithoutRegister() // important
+	r.log.Info("Connected remote",
+		"name", rc.Name,
+		"addr", addr,
+	)
+
+	go client.RunWithoutRegister()
 }

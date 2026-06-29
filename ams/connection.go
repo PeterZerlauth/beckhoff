@@ -1,4 +1,4 @@
-package server
+package ams
 
 import (
 	"encoding/binary"
@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/PeterZerlauth/beckhoff/ams"
 )
 
 type Handler interface {
@@ -18,7 +17,7 @@ type Connection struct {
 	conn net.Conn
 
 	port  uint16
-	netid ams.NetId
+	netid NetId
 
 	handler Handler
 	log     *slog.Logger
@@ -115,7 +114,7 @@ func (c *Connection) worker() {
 }
 
 func (c *Connection) readPacket() ([]byte, error) {
-	var tcp [ams.TcpHeaderSize]byte
+	var tcp [TcpHeaderSize]byte
 
 	if _, err := io.ReadFull(c.conn, tcp[:]); err != nil {
 		c.log.Error("Read failed", "error", err)
@@ -144,7 +143,7 @@ func (c *Connection) send(buf []byte) {
 	c.wmu.Unlock()
 }
 
-func (c *Connection) NetID() ams.NetId  {
+func (c *Connection) NetID() NetId  {
 	return c.netid
 }
 

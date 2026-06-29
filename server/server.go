@@ -13,13 +13,12 @@ import (
 /* Beckhoff ads server */
 
 type Server struct {
-	conn *Connection
+	conn *ams.Connection
 	name string
 
 	mu sync.RWMutex
 
-	log    *slog.Logger
-	logger *logger.Logger
+	log *slog.Logger
 
 	// ads commands
 	OnRead      func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode
@@ -29,15 +28,14 @@ type Server struct {
 
 /* Create new server */
 func NewServer(port uint16, name string) *Server {
-	logger := logger.NewLogger("logger.log", 5)
+	log := logger.GetLogger("", 7).Log() // ✅ directly use slog
 
 	s := &Server{
-		name:   name,
-		log:    logger.Slog(),
-		logger: logger,
+		name: name,
+		log:  log,
 	}
 
-	s.conn = NewConnection(port, s, s.log)
+	s.conn = ams.NewConnection(port, s, s.log)
 
 	return s
 }
@@ -58,7 +56,6 @@ func (s *Server) NetID() ams.NetId {
 	return s.conn.NetID()
 }
 
-
 /* Close server */
 func (s *Server) Close() {
 
@@ -68,15 +65,12 @@ func (s *Server) Close() {
 	if s.log != nil {
 		s.log.Info("server close")
 	}
-	if s.logger != nil {
-		s.logger.Close()
-	}
 }
 
 /* Handle ads Packets */
 func (s *Server) HandlePacket(amsPackage []byte) ([]byte, error) {
 
-	if (len(amsPackage) < 32) {
+	if len(amsPackage) < 32 {
 		s.log.Error("amsPackage to small", "len", len(amsPackage))
 		return nil, nil
 	}

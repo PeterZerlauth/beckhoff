@@ -72,7 +72,7 @@ func main() {
 ## Ads write
 ```go
     // Custom ads read
-    srv.OnRead = func(indexGroup, indexOffset uint32, readData []byte) ads.ErrorCode {
+    srv.OnRead = func(indexGroup, io uint32, readData []byte) ads.ErrorCode {
     	srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(readData))
         if indexGroup == 1000 && indexOffset == 1 {
             binary.LittleEndian.PutUint16(readData, 42)
@@ -85,7 +85,7 @@ func main() {
 ## Ads read/write
 ```go
 // Custom ADS ReadWrite
-srv.OnReadWrite = func(indexGroup, indexOffset uint32, readData []byte, writeData []byte) ads.ErrorCode {
+srv.OnReadWrite = func(indexGroup, io uint32, readData []byte, writeData []byte) ads.ErrorCode {
 	srv.Log().Info("Ads ReadWrite", "ig", indexGroup, "io", indexOffset, "readLen", len(readData), "writeLen", len(writeData))
 
 	if indexGroup == 1000 && indexOffset == 3 {

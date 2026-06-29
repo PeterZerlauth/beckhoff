@@ -21,7 +21,7 @@ func main() {
 
 	// Custom ads read
 	srv.OnRead = func(indexGroup, indexOffset uint32, buf []byte) ads.ErrorCode {
-	//	srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(buf))
+		//	srv.Log().Info("Ads Read", "ig", indexGroup, "io", indexOffset, "len", len(buf))
 		if indexGroup == 1000 && indexOffset == 1 {
 			binary.LittleEndian.PutUint16(buf, 42)
 			return ads.NoError

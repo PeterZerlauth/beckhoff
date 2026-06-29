@@ -6,20 +6,31 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
-
-/* ===================== LOGGER ===================== */
 
 type Logger struct {
 	file *os.File
 	log  *slog.Logger
-	path string // NOT base anymore, just current file
+	path string
 }
 
-/* ===================== CONSTRUCTOR ===================== */
+var (
+	instance *Logger
+	once     sync.Once
+)
 
-func NewLogger(path string, keep int) *Logger {
+// GetLogger returns the singleton instance
+func GetLogger(path string, keep int) *Logger {
+	once.Do(func() {
+		instance = newLogger(path, keep)
+	})
+	return instance
+}
+
+// internal constructor
+func newLogger(path string, keep int) *Logger {
 	today := time.Now().Format("2006-01-02")
 	currentPath := today + ".log"
 
@@ -45,14 +56,6 @@ func NewLogger(path string, keep int) *Logger {
 	return l
 }
 
-/* ===================== ACCESS ===================== */
-
-func (l *Logger) Slog() *slog.Logger {
-	return l.log
-}
-
-/* ===================== ROTATION ===================== */
-
 func (l *Logger) startRotation(keep int) {
 	go func() {
 		for {
@@ -66,15 +69,12 @@ func (l *Logger) rotateDaily(keep int) {
 	today := time.Now().Format("2006-01-02")
 	newPath := today + ".log"
 
-	// already using today's file
 	if l.path == newPath {
 		return
 	}
 
-	// close old file
 	_ = l.file.Close()
 
-	// open new daily file
 	file, err := os.OpenFile(newPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return
@@ -125,4 +125,8 @@ func (l *Logger) Close() {
 	if l.file != nil {
 		_ = l.file.Close()
 	}
+}
+
+func (l *Logger) Log() *slog.Logger {
+	return l.log
 }
