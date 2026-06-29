@@ -85,7 +85,7 @@ func buildAms(req *ams.Header, cmd uint16, payload []byte) []byte {
 		InvokeID:   req.InvokeID,
 	}
 
-	headerBytes, _ := resp.Encode()
+	headerBytes := resp.Encode()
 
 	// TCP header (6 bytes)
 	out := make([]byte, 0, ams.TcpHeaderSize+len(headerBytes)+len(payload))

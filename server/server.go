@@ -45,6 +45,15 @@ func (s *Server) Start() error {
 	return nil
 }
 
+func (s *Server) Stop() {
+	s.log.Info("Ads server stop")
+	if s.conn != nil {
+		s.conn.Close()
+		s.conn = nil
+	}
+	logger.GetLogger("", 7).Close()
+}
+
 func (s *Server) Close() {
 	s.log.Info("Ads server close")
 	if s.conn != nil {

@@ -1,7 +1,6 @@
 package ams
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strconv"
@@ -67,15 +66,22 @@ type Header struct {
 	InvokeID   uint32
 }
 
-func (h *Header) Encode() ([]byte, error) {
-	buf := new(bytes.Buffer)
+func (h *Header) Encode() []byte {
+	var buf [32]byte
 
-	err := binary.Write(buf, binary.LittleEndian, h)
-	if err != nil {
-		return nil, fmt.Errorf("encode AMS header failed: %w", err)
-	}
+	copy(buf[0:6], h.TargetNetId[:])
+	binary.LittleEndian.PutUint16(buf[6:8], h.TargetPort)
 
-	return buf.Bytes(), nil
+	copy(buf[8:14], h.SourceNetId[:])
+	binary.LittleEndian.PutUint16(buf[14:16], h.SourcePort)
+
+	binary.LittleEndian.PutUint16(buf[16:18], h.CommandID)
+	binary.LittleEndian.PutUint16(buf[18:20], h.StateFlags)
+	binary.LittleEndian.PutUint32(buf[20:24], h.DataLength)
+	binary.LittleEndian.PutUint32(buf[24:28], h.ErrorCode)
+	binary.LittleEndian.PutUint32(buf[28:32], h.InvokeID)
+
+	return buf[:]
 }
 
 func Decode(data []byte) (*Header, error) {
@@ -85,12 +91,17 @@ func Decode(data []byte) (*Header, error) {
 
 	h := &Header{}
 
-	buf := bytes.NewReader(data[:32])
+	copy(h.TargetNetId[:], data[0:6])
+	h.TargetPort = binary.LittleEndian.Uint16(data[6:8])
+	
+	copy(h.SourceNetId[:], data[8:14])
+	h.SourcePort = binary.LittleEndian.Uint16(data[14:16])
 
-	err := binary.Read(buf, binary.LittleEndian, h)
-	if err != nil {
-		return nil, fmt.Errorf("decode AMS header failed: %w", err)
-	}
+	h.CommandID = binary.LittleEndian.Uint16(data[16:18])
+	h.StateFlags = binary.LittleEndian.Uint16(data[18:20])
+	h.DataLength = binary.LittleEndian.Uint32(data[20:24])
+	h.ErrorCode = binary.LittleEndian.Uint32(data[24:28])
+	h.InvokeID = binary.LittleEndian.Uint32(data[28:32])
 
 	return h, nil
 }

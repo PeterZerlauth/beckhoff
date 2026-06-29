@@ -22,6 +22,7 @@ type Connection struct {
 	log     *slog.Logger
 
 	jobs chan []byte
+	stop chan struct{}
 
 	wmu sync.Mutex
 }
@@ -38,6 +39,7 @@ func NewConnection(port uint16, h Handler, log *slog.Logger) *Connection {
 		handler: h,
 		log:     log,
 		jobs:    make(chan []byte, 1024),
+		stop:    make(chan struct{}),
 	}
 }
 
@@ -85,80 +87,116 @@ func (c *Connection) register() error {
 	return nil
 }
 
-func (c *Connection) unregister() error {
+// func (c *Connection) unregister() error {
+// 	// @toDo
+// 	var req [8]byte
 
-	var req [8]byte
+// 	req[0] = 0
+// 	req[1] = 0
+// 	req[2] = 3
+// 	req[3] = 0
 
-	req[0] = 0 // reserved
-	req[1] = 0 // reserved
-	req[2] = 3 // ✅ command = ClosePort
-	req[3] = 0
+// 	binary.LittleEndian.PutUint16(req[6:], c.port)
 
-	// Port to close
-	binary.LittleEndian.PutUint16(req[6:], c.port)
+// 	if _, err := c.conn.Write(req[:]); err != nil {
+// 		c.log.Error("Unregister write failed", "error", err)
+// 		return err
+// 	}
 
-	// Send request
-	if _, err := c.conn.Write(req[:]); err != nil {
-		c.log.Error("Unregister write failed", "error", err)
-		return err
-	}
+// 	var res [8]byte
+// 	if _, err := io.ReadFull(c.conn, res[:]); err != nil {
+// 		c.log.Error("Unregister read failed", "error", err)
+// 		return err
+// 	}
 
-	// Read response (same size as register response)
-	var res [8]byte
-	if _, err := io.ReadFull(c.conn, res[:]); err != nil {
-		c.log.Error("Unregister read failed", "error", err)
-		return err
-	}
-
-	return nil
-}
+// 	return nil
+// }
 
 func (c *Connection) Close() {
 	if c.conn != nil {
-		c.unregister()
+		// c.unregister()
+		close(c.stop)
 		_ = c.conn.Close()
+
 	}
 }
 
 func (c *Connection) loop() {
 	for {
+		select {
+		case <-c.stop:
+			return
+		default:
+		}
+
 		p, err := c.readPacket()
 		if err != nil {
+			if c.isClosing() {
+				return
+			}
+			if err == io.EOF {
+				return
+			}
+
 			c.log.Error("connection closed", "err", err)
 			return
 		}
-		c.jobs <- p
+		select {
+		case c.jobs <- p:
+		case <-c.stop:
+			return
+		}
+	}
+}
+
+func (c *Connection) isClosing() bool {
+	select {
+	case <-c.stop:
+		return true
+	default:
+		return false
 	}
 }
 
 func (c *Connection) worker() {
-	for p := range c.jobs {
-		resp, err := c.handler.HandlePacket(p)
-		if err == nil && resp != nil {
-			c.send(resp)
+	for {
+		select {
+		case <-c.stop:
+			return
+
+		case p, ok := <-c.jobs:
+			if !ok {
+				return
+			}
+
+			resp, err := c.handler.HandlePacket(p)
+			if err == nil && resp != nil {
+				c.send(resp)
+			}
+
+			bufPool.Put(p[:0])
 		}
-		bufPool.Put(p[:0])
 	}
 }
 
 func (c *Connection) readPacket() ([]byte, error) {
 	var tcp [TcpHeaderSize]byte
 
-	if _, err := io.ReadFull(c.conn, tcp[:]); err != nil {
-		c.log.Error("Read failed", "error", err)
+	_, err := io.ReadFull(c.conn, tcp[:])
+	if err != nil {
 		return nil, err
 	}
 
 	length := binary.LittleEndian.Uint32(tcp[2:])
-	buf := bufPool.Get().([]byte)
 
+	buf := bufPool.Get().([]byte)
 	if cap(buf) < int(length) {
 		buf = make([]byte, length)
 	}
 	buf = buf[:length]
 
-	if _, err := io.ReadFull(c.conn, buf); err != nil {
-		c.log.Error("Read failed", "error", err)
+	_, err = io.ReadFull(c.conn, buf)
+	if err != nil {
 		return nil, err
 	}
 
